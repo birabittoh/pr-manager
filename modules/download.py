@@ -2,28 +2,16 @@
 
 Exposes a convenient function `download_issue(name: str, issue_id: str, max_scale: int)`
 that returns a list of `io.BytesIO` image contents for the given issue.
-
-Environment variables:
-- TEST_JWT: required JWT bearer token
-- ISSUE_DATE: optional issue date in YYYYMMDD (defaults to today)
-
-This script leverages the existing project modules.
 """
 
-import os
 import logging
-import datetime as _dt
 import time
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Tuple
 from io import BytesIO
 
-from fastapi import status
 import requests
-from dotenv import load_dotenv
 
 from modules.jwt import get_jwt, invalidate_jwt
-
-load_dotenv()
 
 logger = logging.getLogger(__name__)
 
@@ -49,7 +37,7 @@ def _get_params(issue_id: str, issue_date: str, jwt: str) -> Tuple[str, Dict, Di
     return url, params, headers
 
 
-def _download_image(issue_number: str, scale: str, page_number: int, key: str) -> Optional[bytes]:
+def _download_image(issue_number: str, scale: str, page_number: int, key: str) -> bytes | None:
     """Download a single page image"""
     url = "https://i.prcdn.co/img"
     current_scale = int(scale)
@@ -134,13 +122,6 @@ def _get_page_keys(issue_id: str, issue_date: str, jwt: str) -> tuple[dict | Non
         logger.error(f"Exception getting page keys: {e}")
         return None, 500
 
-def _get_issue_date() -> str:
-    """Return issue date from env or default to today's date (YYYYMMDD)."""
-    env_date = os.getenv("ISSUE_DATE")
-    if env_date and len(env_date) == 8 and env_date.isdigit():
-        return env_date
-    return _dt.date.today().strftime("%Y%m%d")
-
 def download_issue(name: str, issue_id: str, issue_date: str, max_scale: int) -> List[BytesIO]:
     """Download all page images for a given issue.
 
@@ -197,27 +178,3 @@ def download_issue(name: str, issue_id: str, issue_date: str, max_scale: int) ->
 
     logger.info(f"Downloaded {len(images)}/{len(page_keys)} pages for {name} ({issue_date}).")
     return images
-
-
-if __name__ == "__main__":
-    logging.basicConfig(level=logging.DEBUG)
-    name = os.getenv("TEST_NAME", "l-unita")
-    issue_id = os.getenv("TEST_ISSUE_ID", "9bpc")
-    issue_date = os.getenv("TEST_DATE", _get_issue_date())
-    try:
-        max_scale = int(os.getenv("TEST_MAX_SCALE", "234"))
-    except ValueError:
-        max_scale = 100
-
-    try:
-        imgs = download_issue(name, issue_id, issue_date, max_scale)
-        print(f"Downloaded {len(imgs)} images.")
-        if imgs:
-            out_path = os.path.join("downloads", f"{name}_{issue_date}_page1.jpg")
-            os.makedirs(os.path.dirname(out_path), exist_ok=True)
-            with open(out_path, "wb") as f:
-                f.write(imgs[0].getvalue())
-            print(f"Wrote sample image to {out_path}")
-    except Exception as e:
-        logger.error(f"Error during test run: {e}")
-        raise

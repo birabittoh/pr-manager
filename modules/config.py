@@ -1,14 +1,13 @@
 import os
 from pathlib import Path
-from typing import Optional
 
 def _get_str(key: str, default: str) -> str:
     return os.getenv(key, default)
 
-def _get_opt(key: str) -> Optional[str]:
+def _get_opt(key: str) -> str | None:
     return os.getenv(key)
 
-def _get_int(key: str, default: Optional[int] = None) -> Optional[int]:
+def _get_int(key: str, default: int | None = None) -> int | None:
     val = os.getenv(key)
     if val is None or val == "":
         return default
@@ -17,7 +16,7 @@ def _get_int(key: str, default: Optional[int] = None) -> Optional[int]:
     except ValueError:
         return default
 
-def _get_bool(key: str, default: Optional[bool] = None) -> Optional[bool]:
+def _get_bool(key: str, default: bool | None = None) -> bool | None:
     val = os.getenv(key)
     if val is None or val == "":
         return default

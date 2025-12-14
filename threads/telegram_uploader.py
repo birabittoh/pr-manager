@@ -7,7 +7,6 @@ from telethon import TelegramClient
 from telethon.sessions import StringSession
 from telethon.errors import SessionPasswordNeededError
 from modules.database import Publication, db, FileWorkflow
-from typing import Optional
 import asyncio
 from modules import config
 from modules.pdf import get_title_from_filename
@@ -43,7 +42,7 @@ class TelegramUploaderThread(threading.Thread):
                 self.channel = int(channel_env)
             else:
                 self.channel = channel_env
-        self.client: Optional[TelegramClient] = None
+        self.client: TelegramClient | None = None
         self.loop = asyncio.new_event_loop()
         
     def setup_client(self):

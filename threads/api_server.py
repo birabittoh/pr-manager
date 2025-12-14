@@ -1,5 +1,4 @@
 import logging
-import os
 from datetime import datetime
 from pathlib import Path
 from fastapi import FastAPI, HTTPException
@@ -7,7 +6,6 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse, FileResponse
 import uvicorn
 from modules.database import db, Publication, FileWorkflow
-from typing import Optional, List
 from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
@@ -19,10 +17,10 @@ static_path = Path(__file__).parent.parent / "static"
 app.mount("/static", StaticFiles(directory=str(static_path)), name="static")
 
 class PublicationUpdate(BaseModel):
-    enabled: Optional[bool] = None
-    issue_id: Optional[str] = None
-    max_scale: Optional[int] = None
-    language: Optional[str] = None
+    enabled: bool | None = None
+    issue_id: str | None = None
+    max_scale: int | None = None
+    language: str | None = None
 
 class PublicationCreate(BaseModel):
     name: str
@@ -32,7 +30,7 @@ class PublicationCreate(BaseModel):
 
 class ManualDownload(BaseModel):
     publication_name: str
-    dates: List[str]
+    dates: list[str]
 
 @app.get("/", response_class=HTMLResponse)
 async def root():

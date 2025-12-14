@@ -5,7 +5,6 @@ import time
 import weakref
 import logging
 from pathlib import Path
-from typing import Optional
 from threading import Lock
 
 from dotenv import load_dotenv
@@ -73,7 +72,7 @@ class Chromium(object):
             return Chromium(headless=True, trace=False, timeout=TIMEOUT)
         return Chromium._instance[0]
 
-    def visit_site(self, page: Page, url: str) -> Optional[Response]:
+    def visit_site(self, page: Page, url: str) -> Response | None:
         response = page.goto(url)
         ok, status = self.__check_response_status(response)
         if not ok:
