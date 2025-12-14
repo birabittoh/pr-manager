@@ -14,6 +14,13 @@ from modules.pdf import get_title_from_filename
 
 logger = logging.getLogger(__name__)
 
+def get_hashtag(file_title: str) -> str:
+    """Generate hashtags based on file title
+       Corriere Della Sera - 14/12/2025 -> #CorriereDellaSera"""
+    name = file_title.split("-")[0].strip()
+    hashtag = "#" + "".join(name.split())
+    return hashtag
+
 class TelegramUploaderThread(threading.Thread):
     def __init__(self):
         super().__init__()
@@ -80,6 +87,19 @@ class TelegramUploaderThread(threading.Thread):
         except Exception as e:
             logger.error(f"Failed to setup Telegram client: {e}")
             return False
+
+    async def async_upload(self, pdf_file):
+        if self.client is None:
+            raise RuntimeError("Telegram client is not initialized")
+
+        title = get_title_from_filename(pdf_file)
+        hashtag = get_hashtag(title)
+
+        return await self.client.send_file(
+            self.channel,
+            pdf_file.__str__(),
+            caption=f"{title}\n\n{hashtag}"
+        )
     
     def upload_file(self, pdf_file: Path):
         """Upload a single PDF file to Telegram"""
@@ -107,20 +127,10 @@ class TelegramUploaderThread(threading.Thread):
                 return
             
             logger.info(f"Uploading {pdf_file.name} to Telegram")
-
-            async def async_upload():
-                if self.client is None:
-                    raise RuntimeError("Telegram client is not initialized")
-                await self.client.send_file(
-                    self.channel,
-                    pdf_file.__str__(),
-                    caption=get_title_from_filename(pdf_file)
-                )
-
-            self.loop.run_until_complete(async_upload())
+            result = self.loop.run_until_complete(self.async_upload(pdf_file))
             
             # Update database
-            if workflow:
+            if workflow and result.id:
                 db.connect(reuse_if_open=True)
                 workflow.uploaded = True
                 workflow.updated_at = datetime.now()
