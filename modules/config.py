@@ -29,7 +29,7 @@ LOG_LEVEL: str = _get_str("LOG_LEVEL", "INFO")
 # Folders (Path objects) — directories are created on import to preserve existing behavior
 DOWNLOAD_FOLDER: Path = Path("data/downloads")
 OCR_FOLDER: Path = Path("data/ocr_output")
-DATABASE_PATH: str = "data/prdl.db"
+DATABASE_PATH: str = "data/pr.db"
 TELEGRAM_SESSION: Path = Path("data/telegram.session")
 
 DOWNLOAD_FOLDER.mkdir(parents=True, exist_ok=True)
@@ -40,13 +40,14 @@ TELEGRAM_SESSION.parent.mkdir(parents=True, exist_ok=True)
 API_HOST: str = _get_str("API_HOST", "0.0.0.0")
 API_PORT: int = _get_int("API_PORT", 8000) or 8000
 
-# External / mock
-MOCK_SERVER_URL: str = _get_str("MOCK_SERVER_URL", "http://localhost:8001")
-
 # Telegram
-TELEGRAM_API_ID: Optional[int] = _get_int("TELEGRAM_API_ID", None)
-TELEGRAM_API_HASH: Optional[str] = _get_opt("TELEGRAM_API_HASH")
-TELEGRAM_CHANNEL: Optional[str] = _get_opt("TELEGRAM_CHANNEL")
+TELEGRAM_API_ID: int | None = _get_int("TELEGRAM_API_ID", None)
+TELEGRAM_API_HASH: str | None = _get_opt("TELEGRAM_API_HASH")
+TELEGRAM_CHANNEL: str | None = _get_opt("TELEGRAM_CHANNEL")
+
+MLOL_WEBSITE: str = _get_str("MLOL_WEBSITE", "https://bibliotu.medialibrary.it")
+MLOL_USERNAME: str | None = _get_opt("MLOL_USERNAME")
+MLOL_PASSWORD: str | None = _get_opt("MLOL_PASSWORD")
 
 __all__ = [
     "LOG_LEVEL",
@@ -54,10 +55,12 @@ __all__ = [
     "OCR_FOLDER",
     "API_HOST",
     "API_PORT",
-    "MOCK_SERVER_URL",
     "DATABASE_PATH",
     "TELEGRAM_API_ID",
     "TELEGRAM_API_HASH",
     "TELEGRAM_CHANNEL",
     "TELEGRAM_SESSION",
+    "MLOL_WEBSITE",
+    "MLOL_USERNAME",
+    "MLOL_PASSWORD",
 ]

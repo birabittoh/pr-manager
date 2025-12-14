@@ -10,6 +10,7 @@ from threading import Lock
 
 from dotenv import load_dotenv
 from playwright.sync_api import Page, Response, TimeoutError, sync_playwright
+from modules import config
 
 
 # Constants
@@ -98,27 +99,6 @@ def _config_page(page: Page):
     page.wait_for_load_state()
     page.set_viewport_size(viewport_size=window_size)
     page.set_default_timeout(TIMEOUT)
-
-
-def _load_env() -> dict:
-    # Load .env from project root if present
-    load_dotenv()
-    cfg = {
-        "MLOL_WEBSITE": os.getenv("MLOL_WEBSITE", ""),
-        "MLOL_USERNAME": os.getenv("MLOL_USERNAME", ""),
-        "MLOL_PASSWORD": os.getenv("MLOL_PASSWORD", ""),
-        "PR_USERNAME": os.getenv("PR_USERNAME", ""),
-        "PR_PASSWORD": os.getenv("PR_PASSWORD", ""),
-    }
-    # minimal validation
-    if "medialibrary.it" not in cfg["MLOL_WEBSITE"]:
-        sys.exit("MLOL website sanitation failed!")
-    if not cfg["MLOL_USERNAME"] or not cfg["MLOL_PASSWORD"]:
-        sys.exit("MLOL credentials not set!")
-    if not cfg["PR_USERNAME"] or not cfg["PR_PASSWORD"]:
-        sys.exit("PressReader credentials not set!")
-    return cfg
-
 
 def _perform_mlol_login(page: Page, username: str, password: str, chromium: Chromium):
     logging.debug("Logging into MLOL...")
@@ -230,7 +210,8 @@ def _logout_safe(p: Page):
 
 def _get_jwt_logic() -> str:
     """Return JWT token captured from PressReader GetPageKeys request."""
-    cfg = _load_env()
+    if not config.MLOL_USERNAME or not config.MLOL_PASSWORD:
+        sys.exit("MLOL credentials are not set in environment variables!")
 
     chromium = Chromium(headless=True, trace=False, timeout=TIMEOUT)
     chromium.context.on("page", _config_page)
@@ -240,18 +221,12 @@ def _get_jwt_logic() -> str:
         # MLOL entry and login
         logging.debug("Visiting MLOL...")
         page = chromium.context.pages[0]
-        chromium.visit_site(page, cfg["MLOL_WEBSITE"])  # entrypoint
-        _perform_mlol_login(page, cfg["MLOL_USERNAME"], cfg["MLOL_PASSWORD"], chromium)
+        chromium.visit_site(page, config.MLOL_WEBSITE)  # entrypoint
+        _perform_mlol_login(page, config.MLOL_USERNAME, config.MLOL_PASSWORD, chromium)
         _dismiss_mlol_modal(page)
         press_page = _mlol_to_pressreader(page, chromium)
 
         time.sleep(5)
-
-        # PressReader flow
-        #_handle_publication_button(press_page)
-        #sign_in_button = press_page.get_by_role("button", name="Sign in")
-        #sign_in_button.click()
-        #_login_pressreader(press_page, cfg["PR_USERNAME"], cfg["PR_PASSWORD"], chromium)
 
         today = datetime.datetime.now().strftime("%Y%m%d")
 

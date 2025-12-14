@@ -28,7 +28,7 @@ python main.py
 
 ## Architecture
 
-- **Downloader Thread**: Downloads publications from mock server
+- **Downloader Thread**: Downloads publications
 - **OCR Processor Thread**: Processes PDFs with OCR
 - **Telegram Uploader Thread**: Uploads processed files to Telegram
 - **API Server**: FastAPI server with web interface
