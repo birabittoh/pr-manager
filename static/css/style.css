@@ -1,0 +1,303 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    background-color: #1e1e1e;
+    color: #e0e0e0;
+    line-height: 1.6;
+}
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+header {
+    background-color: #2d2d2d;
+    padding: 30px;
+    border-radius: 8px;
+    margin-bottom: 30px;
+    border: 1px solid #3d3d3d;
+}
+
+h1 {
+    font-size: 2.5em;
+    margin-bottom: 5px;
+    color: #4a9eff;
+}
+
+.subtitle {
+    color: #999;
+    font-size: 0.9em;
+    margin-bottom: 15px;
+}
+
+.status {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 15px;
+}
+
+.status-indicator {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background-color: #666;
+    animation: pulse 2s infinite;
+}
+
+.status-indicator.online {
+    background-color: #4caf50;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+.panel {
+    background-color: #2d2d2d;
+    padding: 25px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    border: 1px solid #3d3d3d;
+}
+
+h2 {
+    margin-bottom: 20px;
+    color: #4a9eff;
+    font-size: 1.5em;
+}
+
+h3 {
+    margin-bottom: 15px;
+    color: #e0e0e0;
+}
+
+.actions {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.btn {
+    background-color: #4a9eff;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 0.95em;
+    transition: background-color 0.2s;
+}
+
+.btn:hover {
+    background-color: #357abd;
+}
+
+.btn-secondary {
+    background-color: #3d3d3d;
+    color: white;
+    border: 1px solid #555;
+    padding: 10px 20px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 0.95em;
+    transition: background-color 0.2s;
+}
+
+.btn-secondary:hover {
+    background-color: #4d4d4d;
+}
+
+.btn-danger {
+    background-color: #f44336;
+    color: white;
+    border: none;
+    padding: 8px 15px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 0.9em;
+}
+
+.btn-danger:hover {
+    background-color: #d32f2f;
+}
+
+.list {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.publication-item {
+    background-color: #3d3d3d;
+    padding: 15px;
+    border-radius: 5px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border: 1px solid #4d4d4d;
+}
+
+.publication-info {
+    flex: 1;
+}
+
+.publication-name {
+    font-weight: bold;
+    font-size: 1.1em;
+    margin-bottom: 5px;
+}
+
+.publication-details {
+    color: #999;
+    font-size: 0.9em;
+}
+
+.publication-actions {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.toggle-switch {
+    position: relative;
+    width: 50px;
+    height: 24px;
+}
+
+.toggle-switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #555;
+    transition: 0.3s;
+    border-radius: 24px;
+}
+
+.slider:before {
+    position: absolute;
+    content: "";
+    height: 18px;
+    width: 18px;
+    left: 3px;
+    bottom: 3px;
+    background-color: white;
+    transition: 0.3s;
+    border-radius: 50%;
+}
+
+input:checked + .slider {
+    background-color: #4a9eff;
+}
+
+input:checked + .slider:before {
+    transform: translateX(26px);
+}
+
+.form-container {
+    background-color: #3d3d3d;
+    padding: 20px;
+    border-radius: 5px;
+    margin-bottom: 20px;
+    border: 1px solid #4d4d4d;
+}
+
+form {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+input, select {
+    background-color: #2d2d2d;
+    color: #e0e0e0;
+    border: 1px solid #555;
+    padding: 10px;
+    border-radius: 5px;
+    font-size: 0.95em;
+}
+
+input:focus, select:focus {
+    outline: none;
+    border-color: #4a9eff;
+}
+
+.form-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.workflow-list {
+    max-height: 400px;
+    overflow-y: auto;
+    margin-top: 15px;
+}
+
+.workflow-item {
+    background-color: #3d3d3d;
+    padding: 12px;
+    border-radius: 5px;
+    margin-bottom: 10px;
+    border: 1px solid #4d4d4d;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.workflow-info {
+    flex: 1;
+}
+
+.workflow-name {
+    font-weight: bold;
+    margin-bottom: 3px;
+}
+
+.workflow-date {
+    color: #999;
+    font-size: 0.9em;
+}
+
+.workflow-status {
+    display: flex;
+    gap: 10px;
+}
+
+.status-badge {
+    padding: 4px 8px;
+    border-radius: 3px;
+    font-size: 0.8em;
+    font-weight: bold;
+}
+
+.status-badge.completed {
+    background-color: #4caf50;
+    color: white;
+}
+
+.status-badge.pending {
+    background-color: #ff9800;
+    color: white;
+}
+
+.status-badge.failed {
+    background-color: #f44336;
+    color: white;
+}

@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PR Manager</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>PR Manager</h1>
+            <p class="subtitle">Publication Downloader</p>
+            <div class="status" id="status">
+                <span class="status-indicator" id="statusIndicator"></span>
+                <span id="statusText">Checking...</span>
+            </div>
+        </header>
+
+        <main>
+            <section class="panel">
+                <h2>Publications</h2>
+                <div class="actions">
+                    <button onclick="showAddPublicationForm()" class="btn">Add Publication</button>
+                    <button onclick="loadPublications()" class="btn-secondary">Refresh</button>
+                </div>
+                
+                <div id="addPublicationForm" class="form-container" style="display: none;">
+                    <h3>Add New Publication</h3>
+                    <form onsubmit="addPublication(event)">
+                        <input type="text" id="newName" placeholder="Name" required>
+                        <input type="text" id="newIssueId" placeholder="Issue ID" required>
+                        <input type="number" id="newMaxScale" placeholder="Max Scale" required>
+                        <input type="text" id="newLanguage" placeholder="Language" required>
+                        <div class="form-actions">
+                            <button type="submit" class="btn">Add</button>
+                            <button type="button" onclick="hideAddPublicationForm()" class="btn-secondary">Cancel</button>
+                        </div>
+                    </form>
+                </div>
+
+                <div id="publicationsList" class="list"></div>
+            </section>
+
+            <section class="panel">
+                <h2>Manual Download</h2>
+                <form onsubmit="manualDownload(event)">
+                    <select id="manualPub" required>
+                        <option value="">Select publication...</option>
+                    </select>
+                    <input type="text" id="manualDates" placeholder="Dates (YYYYmmdd, comma-separated)" required>
+                    <button type="submit" class="btn">Download</button>
+                </form>
+            </section>
+
+            <section class="panel">
+                <h2>Recent Workflow</h2>
+                <button onclick="loadWorkflow()" class="btn-secondary">Refresh</button>
+                <div id="workflowList" class="workflow-list"></div>
+            </section>
+        </main>
+    </div>
+
+    <script src="/static/js/app.js"></script>
+</body>
+</html>

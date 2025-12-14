@@ -1,0 +1,223 @@
+"""Unified download script for PressReader
+
+Exposes a convenient function `download_issue(name: str, issue_id: str, max_scale: int)`
+that returns a list of `io.BytesIO` image contents for the given issue.
+
+Environment variables:
+- TEST_JWT: required JWT bearer token
+- ISSUE_DATE: optional issue date in YYYYMMDD (defaults to today)
+
+This script leverages the existing project modules.
+"""
+
+import os
+import logging
+import datetime as _dt
+import time
+from typing import Dict, List, Optional, Tuple
+from io import BytesIO
+
+from fastapi import status
+import requests
+from dotenv import load_dotenv
+
+from modules.jwt import get_jwt, invalidate_jwt
+
+load_dotenv()
+
+logger = logging.getLogger(__name__)
+
+MIN_SCALE = 50
+MAX_RETRIES = 10
+SCALE_STEP = 2
+
+def _get_issue_number(issue_id: str, issue_date: str) -> str:
+    """Generate issue number from ID and date"""
+    return f"{issue_id}{issue_date}00000000001001"
+
+def _get_params(issue_id: str, issue_date: str, jwt: str) -> Tuple[str, Dict, Dict]:
+    """Get API parameters for page keys request"""
+    url = "https://ingress.pressreader.com/services/IssueInfo/GetPageKeys"
+    params = {
+        "issue": _get_issue_number(issue_id, issue_date),
+        "pageNumber": "0",
+        "preview": "false"
+    }
+    headers = {
+        "Authorization": f"Bearer {jwt}",
+    }
+    return url, params, headers
+
+
+def _download_image(issue_number: str, scale: str, page_number: int, key: str) -> Optional[bytes]:
+    """Download a single page image"""
+    url = "https://i.prcdn.co/img"
+    current_scale = int(scale)
+    retries = 0
+    
+    while current_scale >= MIN_SCALE:
+        params = {
+            "file": issue_number,
+            "page": page_number,
+            "scale": str(current_scale),
+            "ticket": key
+        }
+        
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:145.0) Gecko/20100101 Firefox/145.0",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "it-IT,it;q=0.8,en-US;q=0.5,en;q=0.3",
+            "Accept-Encoding": "gzip, deflate, br, zstd",
+            "Sec-GPC": "1",
+            "Connection": "keep-alive",
+            "Upgrade-Insecure-Requests": "1",
+            "Sec-Fetch-Dest": "document",
+            "Sec-Fetch-Mode": "navigate",
+            "Sec-Fetch-Site": "cross-site",
+            "Priority": "u=0, i",
+            "TE": "trailers"
+        }
+        
+        while retries < MAX_RETRIES:
+            try:
+                response = requests.get(url, headers=headers, params=params)
+                
+                if response.status_code == 500:
+                    retries += 1
+                    logger.warning(f"500 error for page {page_number}, retrying ({retries}/{MAX_RETRIES})...")
+                    time.sleep(5)
+                    continue
+                    
+                if response.status_code == 403:
+                    current_scale -= SCALE_STEP
+                    logger.warning(f"403 error for page {page_number}, retrying with lower scale: {current_scale}")
+                    retries = 0
+                    break
+                    
+                if response.status_code != 200:
+                    logger.error(f"Failed to download image for page {page_number}. Status code: {response.status_code}")
+                    return None
+                    
+                logger.debug(f"Downloaded page {page_number}")
+                return response.content
+                
+            except Exception as e:
+                logger.error(f"Exception downloading page {page_number}: {e}")
+                retries += 1
+                
+        if retries >= MAX_RETRIES:
+            logger.error(f"Max retries reached for page {page_number} (500 error)")
+            return None
+    
+    logger.error(f"403 error for page {page_number}, minimum scale reached")
+    return None
+
+
+def _get_page_keys(issue_id: str, issue_date: str, jwt: str) -> tuple[dict | None, int]:
+    """Get page keys for an issue"""
+    url, params, headers = _get_params(issue_id, issue_date, jwt)
+    
+    try:
+        response = requests.get(url, headers=headers, params=params)
+        
+        if response.status_code == 401:
+            logger.error("Unauthorized. Check your JWT token.")
+            return None, 401
+            
+        if response.status_code != 200:
+            logger.error(f"Error in request: {response.status_code}")
+            return None, response.status_code
+            
+        return response.json(), 200
+        
+    except Exception as e:
+        logger.error(f"Exception getting page keys: {e}")
+        return None, 500
+
+def _get_issue_date() -> str:
+    """Return issue date from env or default to today's date (YYYYMMDD)."""
+    env_date = os.getenv("ISSUE_DATE")
+    if env_date and len(env_date) == 8 and env_date.isdigit():
+        return env_date
+    return _dt.date.today().strftime("%Y%m%d")
+
+def download_issue(name: str, issue_id: str, issue_date: str, max_scale: int) -> List[BytesIO]:
+    """Download all page images for a given issue.
+
+    Args:
+        name: Human-friendly publication name (used for logs only).
+        issue_id: PressReader issue ID string.
+        issue_date: Issue date in YYYYMMDD format.
+        max_scale: Preferred scale (will step down on 403).
+
+    Returns:
+        List of BytesIO objects containing image bytes for each successfully downloaded page.
+    """
+    jwt = get_jwt()
+
+    logger.info(f"Fetching page keys for {name} ({issue_id}) on {issue_date}...")
+    response_data, status_code = _get_page_keys(issue_id, issue_date, jwt)
+    if status_code == 401:
+        logger.error("JWT expired. Getting a new one.")
+        invalidate_jwt()
+        jwt = get_jwt()
+        response_data, status_code = _get_page_keys(issue_id, issue_date, jwt)
+
+    if status_code != 200 or response_data is None:
+        logger.error(f"Failed to get page keys ({status_code}); aborting.")
+        return []
+
+    issue_number = _get_issue_number(issue_id, issue_date)
+    images: List[BytesIO] = []
+
+    page_keys = response_data.get("PageKeys", [])
+    if not page_keys:
+        logger.warning("No pages reported by API.")
+        return []
+
+    l = len(page_keys)
+    logging.debug(f"Issue has {l} pages.")
+
+    if l < 2:
+        logger.warning("Issue has less than 2 pages.")
+        return []
+
+    for page in page_keys:
+        page_number = page.get("PageNumber")
+        key = page.get("Key")
+        if page_number is None or key is None:
+            logger.warning("Skipping page with missing PageNumber/Key.")
+            continue
+
+        img_bytes = _download_image(issue_number, str(max_scale), int(page_number), str(key))
+        if img_bytes:
+            images.append(BytesIO(img_bytes))
+        else:
+            logger.warning(f"Failed to download page {page_number}.")
+
+    logger.info(f"Downloaded {len(images)}/{len(page_keys)} pages for {name} ({issue_date}).")
+    return images
+
+
+if __name__ == "__main__":
+    logging.basicConfig(level=logging.DEBUG)
+    name = os.getenv("TEST_NAME", "l-unita")
+    issue_id = os.getenv("TEST_ISSUE_ID", "9bpc")
+    issue_date = os.getenv("TEST_DATE", _get_issue_date())
+    try:
+        max_scale = int(os.getenv("TEST_MAX_SCALE", "234"))
+    except ValueError:
+        max_scale = 100
+
+    try:
+        imgs = download_issue(name, issue_id, issue_date, max_scale)
+        print(f"Downloaded {len(imgs)} images.")
+        if imgs:
+            out_path = os.path.join("downloads", f"{name}_{issue_date}_page1.jpg")
+            os.makedirs(os.path.dirname(out_path), exist_ok=True)
+            with open(out_path, "wb") as f:
+                f.write(imgs[0].getvalue())
+            print(f"Wrote sample image to {out_path}")
+    except Exception as e:
+        logger.error(f"Error during test run: {e}")
+        raise
