@@ -1,107 +1,114 @@
 [
-        {
-            "name": "v-il-mensile-di-critica-videoludica",
-            "issue_id": "353q",
-            "issue_dates": [],
-            "max_scale": "377",
-            "language": "ita"
-        },
-        {
-            "name": "retro-gamer",
-            "issue_id": "9knk",
-            "issue_dates": [],
-            "max_scale": "342",
-            "language": "eng"
-        },
-        {
-            "name": "pc-gamer-uk",
-            "issue_id": "9631",
-            "issue_dates": [],
-            "max_scale": "346",
-            "language": "eng"
-        },
-        {
-            "name": "scienze",
-            "issue_id": "347h",
-            "issue_dates": [],
-            "max_scale": "357",
-            "language": "ita"
-        },
-        {
-            "name": "piu-maglia-bebe",
-            "issue_id": "348h",
-            "issue_dates": [],
-            "max_scale": "357",
-            "language": "ita"
-        },
-        {
-            "name": "l-uncinetto-di-gio",
-            "issue_id": "345t",
-            "issue_dates": [],
-            "max_scale": "357",
-            "language": "ita"
-        },
-        {
-            "name": "uncinetto-di-gio-plus",
-            "issue_id": "350s",
-            "issue_dates": [],
-            "max_scale": "356",
-            "language": "ita"
-        },
-        {
-            "name": "i-love-amigurumi",
-            "issue_id": "345n",
-            "issue_dates": [],
-            "max_scale": "357",
-            "language": "ita"
-        },
-        {
-            "name": "i-love-punto-croce-speciale",
-            "issue_id": "348w",
-            "issue_dates": [],
-            "max_scale": "357",
-            "language": "ita"
-        },
-        {
-            "name": "focus-italy",
-            "issue_id": "36a5",
-            "issue_dates": [],
-            "max_scale": "358",
-            "language": "ita"
-        },
-        {
-            "name": "gatto-magazine",
-            "issue_id": "347e",
-            "issue_dates": [],
-            "max_scale": "357",
-            "language": "ita"
-        },
-        {
-            "name": "anime-cult",
-            "issue_id": "368v",
-            "issue_dates": [],
-            "max_scale": "357",
-            "language": "ita"
-        },
-        {
-            "name": "anime-cult-speciale",
-            "issue_id": "36bl",
-            "issue_dates": [],
-            "max_scale": "357",
-            "language": "ita"
-        },
-        {
-            "name": "linux-pro",
-            "issue_id": "346o",
-            "issue_dates": [],
-            "max_scale": "357",
-            "language": "ita"
-        },
-        {
-            "name": "l-unita",
-            "issue_id": "9bpc",
-            "max_scale": "234",
-            "language": "ita",
-            "issue_dates": []
-        }
+    {
+        "name": "civilta-dei-dati",
+        "issue_id": "22xt",
+        "issue_dates": [],
+        "max_scale": "457",
+        "language": "ita"
+    },
+    {
+        "name": "retro-gamer",
+        "issue_id": "9knk",
+        "issue_dates": [],
+        "max_scale": "342",
+        "language": "eng"
+    },
+    {
+        "name": "pc-gamer-uk",
+        "issue_id": "9631",
+        "issue_dates": [],
+        "max_scale": "346",
+        "language": "eng"
+    },
+    {
+        "name": "scienze",
+        "issue_id": "347h",
+        "issue_dates": [],
+        "max_scale": "357",
+        "language": "ita"
+    },
+    {
+        "name": "piu-maglia-bebe",
+        "issue_id": "348h",
+        "issue_dates": [],
+        "max_scale": "357",
+        "language": "ita"
+    },
+    {
+        "name": "l-uncinetto-di-gio",
+        "issue_id": "345t",
+        "issue_dates": [],
+        "max_scale": "357",
+        "language": "ita"
+    },
+    {
+        "name": "uncinetto-di-gio-plus",
+        "issue_id": "350s",
+        "issue_dates": [],
+        "max_scale": "356",
+        "language": "ita"
+    },
+    {
+        "name": "i-love-amigurumi",
+        "issue_id": "345n",
+        "issue_dates": [],
+        "max_scale": "357",
+        "language": "ita"
+    },
+    {
+        "name": "i-love-punto-croce-speciale",
+        "issue_id": "348w",
+        "issue_dates": [],
+        "max_scale": "357",
+        "language": "ita"
+    },
+    {
+        "name": "focus-italy",
+        "issue_id": "36a5",
+        "issue_dates": [],
+        "max_scale": "358",
+        "language": "ita"
+    },
+    {
+        "name": "gatto-magazine",
+        "issue_id": "347e",
+        "issue_dates": [],
+        "max_scale": "357",
+        "language": "ita"
+    },
+    {
+        "name": "anime-cult",
+        "issue_id": "368v",
+        "issue_dates": [],
+        "max_scale": "357",
+        "language": "ita"
+    },
+    {
+        "name": "anime-cult-speciale",
+        "issue_id": "36bl",
+        "issue_dates": [],
+        "max_scale": "357",
+        "language": "ita"
+    },
+    {
+        "name": "linux-pro",
+        "issue_id": "346o",
+        "issue_dates": [],
+        "max_scale": "357",
+        "language": "ita"
+    },
+    {
+        "name": "l-unita",
+        "issue_id": "9bpc",
+        "max_scale": "234",
+        "language": "ita",
+        "issue_dates": []
+    },
+    {
+        "name": "retro-gamer-1",
+        "issue_id": "234p",
+        "issue_dates": [],
+        "max_scale": "357",
+        "language": "ita"
+    }
 ]
