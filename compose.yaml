@@ -1,0 +1,12 @@
+services:
+  pr_manager:
+    container_name: pr-manager
+    image: ghcr.io/birabittoh/pr-manager:main
+    build: .
+    ports:
+      - 8000:8000
+    volumes:
+      - ./data:/app/data
+    env_file:
+      - .env
+    restart: unless-stopped
