@@ -26,14 +26,19 @@ def _get_bool(key: str, default: bool | None = None) -> bool | None:
 LOG_LEVEL: str = _get_str("LOG_LEVEL", "INFO")
 
 # Folders (Path objects) — directories are created on import to preserve existing behavior
-DOWNLOAD_FOLDER: Path = Path("data/downloads")
-OCR_FOLDER: Path = Path("data/ocr_output")
-DATABASE_PATH: str = "data/pr.db"
-TELEGRAM_SESSION: Path = Path("data/telegram.session")
+DATA_FOLDER: Path = Path("data")
+DOWNLOAD_FOLDER: Path = DATA_FOLDER / "downloads"
+OCR_FOLDER: Path = DATA_FOLDER / "ocr_output"
+DATABASE_PATH: Path = DATA_FOLDER / "pr.db"
+TELEGRAM_SESSION: Path = DATA_FOLDER / "telegram.session"
+JWT_TOKEN: Path = DATA_FOLDER / "jwt.token"
 
+DATA_FOLDER.mkdir(parents=True, exist_ok=True)
 DOWNLOAD_FOLDER.mkdir(parents=True, exist_ok=True)
 OCR_FOLDER.mkdir(parents=True, exist_ok=True)
+DATABASE_PATH.parent.mkdir(parents=True, exist_ok=True)
 TELEGRAM_SESSION.parent.mkdir(parents=True, exist_ok=True)
+JWT_TOKEN.parent.mkdir(parents=True, exist_ok=True)
 
 # API / server
 API_HOST: str = _get_str("API_HOST", "0.0.0.0")
@@ -48,6 +53,8 @@ MLOL_WEBSITE: str = _get_str("MLOL_WEBSITE", "https://bibliotu.medialibrary.it")
 MLOL_USERNAME: str | None = _get_opt("MLOL_USERNAME")
 MLOL_PASSWORD: str | None = _get_opt("MLOL_PASSWORD")
 
+THRESHOLD_DATE: str | None = _get_opt("THRESHOLD_DATE")  # YYYYMMDD
+
 __all__ = [
     "LOG_LEVEL",
     "DOWNLOAD_FOLDER",
@@ -59,7 +66,9 @@ __all__ = [
     "TELEGRAM_API_HASH",
     "TELEGRAM_CHANNEL",
     "TELEGRAM_SESSION",
+    "JWT_TOKEN",
     "MLOL_WEBSITE",
     "MLOL_USERNAME",
     "MLOL_PASSWORD",
+    "THRESHOLD_DATE",
 ]

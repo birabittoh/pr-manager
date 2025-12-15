@@ -1,5 +1,4 @@
 import datetime
-import os
 import sys
 import time
 import weakref
@@ -7,14 +6,15 @@ import logging
 from pathlib import Path
 from threading import Lock
 
-from dotenv import load_dotenv
 from playwright.sync_api import Page, Response, TimeoutError, sync_playwright
-from modules import config
+import requests
 
+from modules import config
 
 # Constants
 TIMEOUT = 30000  # ms
 
+_jwt_file = config.JWT_TOKEN
 _jwt_cache = None
 _jwt_lock = Lock()
 
@@ -268,11 +268,23 @@ def get_jwt() -> str:
     
     with _jwt_lock:
         if _jwt_cache is not None:
-            logging.info("Returning cached JWT")
+            logging.debug("Returning cached JWT")
             return _jwt_cache
+        
+        if _jwt_file.exists():
+            with open(_jwt_file, "r") as f:
+                _jwt_cache = f.read().strip()
+                if _jwt_cache:
+                    logging.debug("Loaded JWT from cache file")
+                    return _jwt_cache
         
         logging.info("Retrieving new JWT...")
         _jwt_cache = _get_jwt_logic()
+
+        # save to file
+        with open(_jwt_file, "w") as f:
+            f.write(_jwt_cache)
+
         logging.info("JWT retrieved and cached successfully")
         return _jwt_cache
 
@@ -281,7 +293,28 @@ def invalidate_jwt():
     global _jwt_cache
     with _jwt_lock:
         _jwt_cache = None
+
+        # remove cached file
+        if _jwt_file.exists():
+            _jwt_file.unlink()
+
         logging.info("JWT cache invalidated")
+
+
+def authorized_request(url: str, params: dict[str,str]) -> requests.Response:
+    """Make an authorized GET request with JWT, invalidate on 401"""
+    jwt = get_jwt()
+    headers = {
+        "Authorization": f"Bearer {jwt}",
+    }
+    response = requests.get(url, headers=headers, params=params)
+    if response.status_code == 401:
+        logging.info("JWT expired, obtaining a new one...")
+        invalidate_jwt()
+        jwt = get_jwt()
+        headers["Authorization"] = f"Bearer {jwt}"
+        response = requests.get(url, headers=headers, params=params)
+    return response
 
 
 if __name__ == "__main__":

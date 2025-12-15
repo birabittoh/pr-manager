@@ -6,6 +6,8 @@ from dotenv import load_dotenv
 from pathlib import Path
 import threading
 
+from threads.scheduler import SchedulerThread
+
 # Suppress all warnings
 warnings.filterwarnings("ignore")
 
@@ -47,6 +49,13 @@ def main():
     
     # Start threads
     threads = []
+
+    # Scheduler thread
+    scheduler = SchedulerThread()
+    scheduler.daemon = True 
+    scheduler.start()
+    threads.append(scheduler)
+    logger.info("Scheduler thread started")
     
     # Downloader thread
     downloader = DownloaderThread()

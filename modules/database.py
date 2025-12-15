@@ -2,7 +2,7 @@ from peewee import *
 from datetime import datetime
 from modules import config
 
-db_path = config.DATABASE_PATH
+db_path = str(config.DATABASE_PATH)
 db = SqliteDatabase(db_path)
 
 class BaseModel(Model):
@@ -21,6 +21,7 @@ class Publication(BaseModel):
 class FileWorkflow(BaseModel):
     publication_name = CharField()
     date = CharField()
+    issue_id = CharField()
     downloaded = BooleanField(default=False)
     ocr_processed = BooleanField(default=False)
     uploaded = BooleanField(default=False)

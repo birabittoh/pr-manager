@@ -16,27 +16,18 @@ class DownloaderThread(threading.Thread):
         super().__init__()
         self.download_folder = config.DOWNLOAD_FOLDER
     
-    def download_issue(self, publication, date_str):
+    def download_issue(self, fw: FileWorkflow):
         """Download a single issue"""
-        filename = f"{publication.name}_{date_str}.temp.pdf"
+        filename = f"{fw.publication_name}_{fw.date}.temp.pdf"
         filepath = self.download_folder / filename
-        
-        # Check if already downloaded
+
         db.connect(reuse_if_open=True)
-        workflow, created = FileWorkflow.get_or_create(
-            publication_name=publication.name,
-            date=date_str,
-            defaults={'downloaded': False}
-        )
+        publication: Publication = Publication.get(Publication.name == fw.publication_name)
         db.close()
-        
-        if workflow.downloaded and filepath.exists():
-            logger.debug(f"Issue {filename} already downloaded")
-            return
         
         try:
             logger.info(f"Downloading {filename}")
-            images = download_issue(publication.name, publication.issue_id, date_str, publication.max_scale)
+            images = download_issue(str(publication.name), str(publication.issue_id), str(fw.date), int(publication.max_scale))
             
             # enqueue all images to be saved as PDF
             if len(images) <= 1:
@@ -44,12 +35,6 @@ class DownloaderThread(threading.Thread):
                 return
 
             save_images_as_pdf(images, filepath)
-                
-            db.connect(reuse_if_open=True)
-            workflow.downloaded = True
-            workflow.updated_at = datetime.now()
-            workflow.save()
-            db.close()
                 
             logger.info(f"Successfully downloaded {filename}")
                 
@@ -64,16 +49,17 @@ class DownloaderThread(threading.Thread):
                 today = datetime.now().strftime("%Y%m%d")
                 
                 db.connect(reuse_if_open=True)
-                publications: list[Publication] = list(
-                    Publication.select().where(
-                        (Publication.enabled == True) &
-                        ((Publication.last_finished != today) | (Publication.last_finished.is_null()))
-                    )
-                )
-                db.close()
+                # Get FileWorkflows that are not yet downloaded
+                fws: list[FileWorkflow] = list(FileWorkflow.select().where((FileWorkflow.downloaded == False)))
                 
-                for pub in publications:
-                    self.download_issue(pub, today)
+                for fw in fws:
+                    self.download_issue(fw)
+                    
+                    db.connect(reuse_if_open=True)
+                    fw.downloaded = True
+                    fw.updated_at = datetime.now()
+                    fw.save()
+                    db.close()
                 
                 # Sleep for 6 hours
                 sleep_hours = 6

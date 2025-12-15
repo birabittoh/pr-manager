@@ -103,12 +103,5 @@
             "max_scale": "234",
             "language": "ita",
             "issue_dates": []
-        },
-        {
-            "name": "corriere-della-sera",
-            "issue_id": "3501",
-            "max_scale": "320",
-            "language": "ita",
-            "issue_dates": []
         }
 ]

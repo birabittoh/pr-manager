@@ -1,17 +1,10 @@
-"""Unified download script for PressReader
-
-Exposes a convenient function `download_issue(name: str, issue_id: str, max_scale: int)`
-that returns a list of `io.BytesIO` image contents for the given issue.
-"""
-
 import logging
 import time
-from typing import Dict, List, Tuple
 from io import BytesIO
 
 import requests
 
-from modules.jwt import get_jwt, invalidate_jwt
+from modules.jwt import authorized_request
 
 logger = logging.getLogger(__name__)
 
@@ -19,22 +12,11 @@ MIN_SCALE = 50
 MAX_RETRIES = 10
 SCALE_STEP = 2
 
-def _get_issue_number(issue_id: str, issue_date: str) -> str:
-    """Generate issue number from ID and date"""
-    return f"{issue_id}{issue_date}00000000001001"
+ISSUE_NUMBER_FMT ="{issue_id}{issue_date}00000000001001"
 
-def _get_params(issue_id: str, issue_date: str, jwt: str) -> Tuple[str, Dict, Dict]:
-    """Get API parameters for page keys request"""
-    url = "https://ingress.pressreader.com/services/IssueInfo/GetPageKeys"
-    params = {
-        "issue": _get_issue_number(issue_id, issue_date),
-        "pageNumber": "0",
-        "preview": "false"
-    }
-    headers = {
-        "Authorization": f"Bearer {jwt}",
-    }
-    return url, params, headers
+def _format_issue_number(issue_id: str, issue_date: str) -> str:
+    """Generate issue number from ID and date"""
+    return ISSUE_NUMBER_FMT.format(issue_id=issue_id, issue_date=issue_date)
 
 
 def _download_image(issue_number: str, scale: str, page_number: int, key: str) -> bytes | None:
@@ -82,7 +64,7 @@ def _download_image(issue_number: str, scale: str, page_number: int, key: str) -
                     retries = 0
                     break
                     
-                if response.status_code != 200:
+                if not response.ok:
                     logger.error(f"Failed to download image for page {page_number}. Status code: {response.status_code}")
                     return None
                     
@@ -101,28 +83,47 @@ def _download_image(issue_number: str, scale: str, page_number: int, key: str) -
     return None
 
 
-def _get_page_keys(issue_id: str, issue_date: str, jwt: str) -> tuple[dict | None, int]:
+def _get_page_keys(issue_id: str, issue_date: str) -> dict | None:
     """Get page keys for an issue"""
-    url, params, headers = _get_params(issue_id, issue_date, jwt)
+    url = "https://ingress.pressreader.com/services/IssueInfo/GetPageKeys"
+    params = {
+        "issue": _format_issue_number(issue_id, issue_date),
+        "pageNumber": "0",
+        "preview": "false"
+    }
     
     try:
-        response = requests.get(url, headers=headers, params=params)
-        
-        if response.status_code == 401:
-            logger.error("Unauthorized. Check your JWT token.")
-            return None, 401
+        response = authorized_request(url, params)
             
-        if response.status_code != 200:
+        if not response.ok:
             logger.error(f"Error in request: {response.status_code}")
-            return None, response.status_code
+            return None
             
-        return response.json(), 200
+        return response.json()
         
     except Exception as e:
         logger.error(f"Exception getting page keys: {e}")
-        return None, 500
+        return None
 
-def download_issue(name: str, issue_id: str, issue_date: str, max_scale: int) -> List[BytesIO]:
+def get_issue_info(issue_id: str) -> dict | None:
+    """Get issue info for a publication"""
+    url = f"https://ingress.pressreader.com/services/catalog/v2/publications/{issue_id}"
+    params = {}
+
+    try:
+        response = authorized_request(url, params)
+
+        if not response.ok:
+            logger.error(f"Error in request: {response.status_code}")
+            return None
+
+        return response.json()
+    except Exception as e:
+        logger.error(f"Exception getting issue info: {e}")
+        return None
+    #
+
+def download_issue(name: str, issue_id: str, issue_date: str, max_scale: int) -> list[BytesIO]:
     """Download all page images for a given issue.
 
     Args:
@@ -134,22 +135,15 @@ def download_issue(name: str, issue_id: str, issue_date: str, max_scale: int) ->
     Returns:
         List of BytesIO objects containing image bytes for each successfully downloaded page.
     """
-    jwt = get_jwt()
-
     logger.info(f"Fetching page keys for {name} ({issue_id}) on {issue_date}...")
-    response_data, status_code = _get_page_keys(issue_id, issue_date, jwt)
-    if status_code == 401:
-        logger.error("JWT expired. Getting a new one.")
-        invalidate_jwt()
-        jwt = get_jwt()
-        response_data, status_code = _get_page_keys(issue_id, issue_date, jwt)
+    response_data = _get_page_keys(issue_id, issue_date)
 
-    if status_code != 200 or response_data is None:
-        logger.error(f"Failed to get page keys ({status_code}); aborting.")
+    if response_data is None:
+        logger.error(f"Failed to get page keys; aborting.")
         return []
 
-    issue_number = _get_issue_number(issue_id, issue_date)
-    images: List[BytesIO] = []
+    issue_number = _format_issue_number(issue_id, issue_date)
+    images: list[BytesIO] = []
 
     page_keys = response_data.get("PageKeys", [])
     if not page_keys:
