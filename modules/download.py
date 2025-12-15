@@ -3,13 +3,10 @@ import time
 
 import requests
 
+from modules import config
 from modules.jwt import authorized_request
 
 logger = logging.getLogger(__name__)
-
-MIN_SCALE = 50
-MAX_RETRIES = 10
-SCALE_STEP = 2
 
 ISSUE_NUMBER_FMT ="{issue_id}{issue_date}00000000001001"
 
@@ -24,7 +21,7 @@ def _download_image(issue_number: str, scale: str, page_number: int, key: str) -
     current_scale = int(scale)
     retries = 0
     
-    while current_scale >= MIN_SCALE:
+    while current_scale >= config.MIN_SCALE:
         params = {
             "file": issue_number,
             "page": page_number,
@@ -47,18 +44,18 @@ def _download_image(issue_number: str, scale: str, page_number: int, key: str) -
             "TE": "trailers"
         }
         
-        while retries < MAX_RETRIES:
+        while retries < config.MAX_RETRIES:
             try:
                 response = requests.get(url, headers=headers, params=params)
                 
                 if response.status_code == 500:
                     retries += 1
-                    logger.warning(f"500 error for page {page_number}, retrying ({retries}/{MAX_RETRIES})...")
+                    logger.warning(f"500 error for page {page_number}, retrying ({retries}/{config.MAX_RETRIES})...")
                     time.sleep(5)
                     continue
                     
                 if response.status_code == 403:
-                    current_scale -= SCALE_STEP
+                    current_scale -= config.SCALE_STEP
                     logger.warning(f"403 error for page {page_number}, retrying with lower scale: {current_scale}")
                     retries = 0
                     break
@@ -74,7 +71,7 @@ def _download_image(issue_number: str, scale: str, page_number: int, key: str) -
                 logger.error(f"Exception downloading page {page_number}: {e}")
                 retries += 1
                 
-        if retries >= MAX_RETRIES:
+        if retries >= config.MAX_RETRIES:
             logger.error(f"Max retries reached for page {page_number} (500 error)")
             return None
     

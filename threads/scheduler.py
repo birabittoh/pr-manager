@@ -8,14 +8,11 @@ from modules import config
 
 logger = logging.getLogger(__name__)
 
-SLEEP_HOURS = 1
-
 class SchedulerThread(threading.Thread):
     def __init__(self):
         super().__init__()
-        self.threshold_date = config.THRESHOLD_DATE
-        if self.threshold_date is None:
-            self.threshold_date = "19700101"
+        self.threshold_date = config.THRESHOLD_DATE or "19700101"
+        self.sleep_hours = config.SLEEP_HOURS or 8
     
     def run(self):
         logger.info("Scheduler thread running")
@@ -68,7 +65,7 @@ class SchedulerThread(threading.Thread):
 
                     logger.info(f"Scheduling download for publication {pub.name} on {issue_date}")
                 
-                time.sleep(3600 * SLEEP_HOURS)
+                time.sleep(3600 * self.sleep_hours)
   
             except Exception as e:
                 logger.error(f"Error in scheduler thread: {e}")

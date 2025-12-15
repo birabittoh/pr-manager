@@ -57,6 +57,10 @@ MLOL_PASSWORD: str | None = _get_opt("MLOL_PASSWORD")
 
 THRESHOLD_DATE: str | None = _get_opt("THRESHOLD_DATE")  # YYYYMMDD
 DELETE_AFTER_UPLOAD: bool = _get_bool("DELETE_AFTER_UPLOAD") or False
+SLEEP_HOURS: int | None = _get_int("SLEEP_HOURS", 8) or 8
+MIN_SCALE: int = _get_int("MIN_SCALE", 50) or 50
+SCALE_STEP: int = _get_int("SCALE_STEP", 5) or 5
+MAX_RETRIES: int = _get_int("MAX_RETRIES", 10) or 10
 
 __all__ = [
     "LOG_LEVEL",
@@ -75,4 +79,8 @@ __all__ = [
     "MLOL_PASSWORD",
     "THRESHOLD_DATE",
     "DELETE_AFTER_UPLOAD",
+    "SLEEP_HOURS",
+    "MIN_SCALE",
+    "SCALE_STEP",
+    "MAX_RETRIES",
 ]
