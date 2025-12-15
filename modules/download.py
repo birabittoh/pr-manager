@@ -1,6 +1,5 @@
 import logging
 import time
-from io import BytesIO
 
 import requests
 
@@ -124,7 +123,7 @@ def get_issue_info(issue_id: str) -> dict | None:
         return None
     #
 
-def download_issue(name: str, issue_id: str, issue_date: str, max_scale: int) -> list[BytesIO]:
+def download_issue(name: str, issue_id: str, issue_date: str, max_scale: int) -> list[bytes]:
     """Download all page images for a given issue.
 
     Args:
@@ -134,7 +133,7 @@ def download_issue(name: str, issue_id: str, issue_date: str, max_scale: int) ->
         max_scale: Preferred scale (will step down on 403).
 
     Returns:
-        List of BytesIO objects containing image bytes for each successfully downloaded page.
+        List of bytes objects containing image bytes for each successfully downloaded page.
     """
     logger.info(f"Fetching page keys for {name} ({issue_id}) on {issue_date}...")
     response_data = _get_page_keys(issue_id, issue_date)
@@ -144,7 +143,7 @@ def download_issue(name: str, issue_id: str, issue_date: str, max_scale: int) ->
         return []
 
     issue_number = _format_issue_number(issue_id, issue_date)
-    images: list[BytesIO] = []
+    images: list[bytes] = []
 
     page_keys = response_data.get("PageKeys", [])
     if not page_keys:
@@ -169,7 +168,7 @@ def download_issue(name: str, issue_id: str, issue_date: str, max_scale: int) ->
 
         img_bytes = _download_image(issue_number, str(max_scale), int(page_number), str(key))
         if img_bytes:
-            images.append(BytesIO(img_bytes))
+            images.append(img_bytes)
         else:
             logger.warning(f"Failed to download page {page_number}.")
 

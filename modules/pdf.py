@@ -1,7 +1,6 @@
 from pathlib import Path
-from PIL import Image
 from datetime import datetime
-from io import BytesIO
+import img2pdf
 
 def get_title_from_filename(filename: Path) -> str:
     """Extract title from filename by removing extensions and replacing underscores with spaces
@@ -33,32 +32,9 @@ def get_title_from_filename(filename: Path) -> str:
     return title
 
 
-def save_images_as_pdf(images_io: list[BytesIO], output_path: Path) -> None:
-    """Save a list of images as a single PDF file, with metadata, without recompression and saving quality and resolution for each image"""
-    pil_images = []
-    for img_io in images_io:
-        img_io.seek(0)
-        img = Image.open(img_io)
-        if img.mode in ("RGBA", "P"):
-            img = img.convert("RGB")
-        pil_images.append(img)
-
-    if not pil_images:
-        raise ValueError("No images to save as PDF")
-
-    first_image, *rest_images = pil_images
-
-    pdf_info = {
-        "Title": get_title_from_filename(output_path),
-        "CreationDate": datetime.now().strftime("D:%Y%m%d%H%M%S"),
-    }
-
-    first_image.save(
-        output_path,
-        save_all=True,
-        append_images=rest_images,
-        format="PDF",
-        #resolution=300.0,
-        #quality=95,
-        pdfinfo=pdf_info
-    )
+def save_images_as_pdf(images: list[bytes], output_path: Path) -> None:
+    """Save a list of images as a single PDF file"""
+    pdf_bytes = img2pdf.convert(images)
+    
+    with open(output_path, 'wb') as f:
+        f.write(pdf_bytes)

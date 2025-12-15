@@ -1,6 +1,7 @@
 [
     {
         "name": "civilta-dei-dati",
+        "display_name": "Civiltà dei Dati",
         "issue_id": "22xt",
         "issue_dates": [],
         "max_scale": "457",
@@ -8,6 +9,7 @@
     },
     {
         "name": "retro-gamer",
+        "display_name": "Retro Gamer (UK)",
         "issue_id": "9knk",
         "issue_dates": [],
         "max_scale": "342",
@@ -15,6 +17,7 @@
     },
     {
         "name": "pc-gamer-uk",
+        "display_name": "PC Gamer",
         "issue_id": "9631",
         "issue_dates": [],
         "max_scale": "346",
@@ -29,6 +32,7 @@
     },
     {
         "name": "piu-maglia-bebe",
+        "display_name": "Più Maglia Bebè",
         "issue_id": "348h",
         "issue_dates": [],
         "max_scale": "357",
@@ -36,6 +40,7 @@
     },
     {
         "name": "l-uncinetto-di-gio",
+        "display_name": "L'uncinetto di Giò",
         "issue_id": "345t",
         "issue_dates": [],
         "max_scale": "357",
@@ -43,6 +48,7 @@
     },
     {
         "name": "uncinetto-di-gio-plus",
+        "display_name": "L'uncinetto di Giò Plus",
         "issue_id": "350s",
         "issue_dates": [],
         "max_scale": "356",
@@ -64,6 +70,7 @@
     },
     {
         "name": "focus-italy",
+        "display_name": "Focus",
         "issue_id": "36a5",
         "issue_dates": [],
         "max_scale": "358",
@@ -99,6 +106,7 @@
     },
     {
         "name": "l-unita",
+        "display_name": "L'Unità",
         "issue_id": "9bpc",
         "max_scale": "234",
         "language": "ita",
@@ -106,6 +114,7 @@
     },
     {
         "name": "retro-gamer-1",
+        "display_name": "Retro Gamer",
         "issue_id": "234p",
         "issue_dates": [],
         "max_scale": "357",

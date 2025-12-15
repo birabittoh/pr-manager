@@ -23,6 +23,8 @@ class TelegramUploaderThread(threading.Thread):
     def __init__(self):
         super().__init__()
         self.ocr_folder = config.OCR_FOLDER
+        self.done_folder = config.DONE_FOLDER
+        self.delete_after_upload = config.DELETE_AFTER_UPLOAD
         api_id_env = config.TELEGRAM_API_ID
         api_hash_env = config.TELEGRAM_API_HASH
         channel_env = config.TELEGRAM_CHANNEL
@@ -86,11 +88,11 @@ class TelegramUploaderThread(threading.Thread):
             logger.error(f"Failed to setup Telegram client: {e}")
             return False
 
-    async def async_upload(self, pdf_file):
+    async def async_upload(self, pdf_file, display_name: str):
         if self.client is None:
             raise RuntimeError("Telegram client is not initialized")
 
-        title = get_title_from_filename(pdf_file)
+        title = display_name if display_name else get_title_from_filename(pdf_file)
         hashtag = get_hashtag(title)
 
         return await self.client.send_file(
@@ -113,6 +115,7 @@ class TelegramUploaderThread(threading.Thread):
                 FileWorkflow.publication_name == publication_name,
                 FileWorkflow.date == date_str
             )
+            publication = Publication.get_or_none(Publication.name == publication_name)
             db.close()
             
             if workflow and workflow.uploaded:
@@ -123,9 +126,11 @@ class TelegramUploaderThread(threading.Thread):
             if workflow and not workflow.ocr_processed:
                 logger.warning(f"File {pdf_file.name} not OCR processed yet; skipping upload.")
                 return
+
+            display_name = publication.display_name if publication and publication.display_name else ""
             
             logger.info(f"Uploading {pdf_file.name} to Telegram")
-            result = self.loop.run_until_complete(self.async_upload(pdf_file))
+            result = self.loop.run_until_complete(self.async_upload(pdf_file, display_name))
             
             # Update database
             if workflow and result.id:
@@ -136,15 +141,18 @@ class TelegramUploaderThread(threading.Thread):
                 workflow.updated_at = datetime.now()
                 workflow.save()
 
-                publication = Publication.get_or_none(Publication.name == publication_name)
                 if publication:
                     publication.last_finished = date_str
                     publication.save()
                 db.close()
             
-            # Delete file
-            pdf_file.unlink(missing_ok=True)
-            logger.info(f"Successfully uploaded and deleted {pdf_file.name}")
+            logger.info(f"Successfully uploaded {pdf_file.name}")
+            
+            if self.delete_after_upload:
+                pdf_file.unlink(missing_ok=True)
+            else:
+                done_path = self.done_folder / pdf_file.name
+                pdf_file.rename(done_path)
             
         except Exception as e:
             logger.error(f"Error uploading {pdf_file.name}: {e}")

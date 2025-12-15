@@ -29,6 +29,7 @@ LOG_LEVEL: str = _get_str("LOG_LEVEL", "INFO")
 DATA_FOLDER: Path = Path("data")
 DOWNLOAD_FOLDER: Path = DATA_FOLDER / "downloads"
 OCR_FOLDER: Path = DATA_FOLDER / "ocr_output"
+DONE_FOLDER: Path = DATA_FOLDER / "done"
 DATABASE_PATH: Path = DATA_FOLDER / "pr.db"
 TELEGRAM_SESSION: Path = DATA_FOLDER / "telegram.session"
 JWT_TOKEN: Path = DATA_FOLDER / "jwt.token"
@@ -36,6 +37,7 @@ JWT_TOKEN: Path = DATA_FOLDER / "jwt.token"
 DATA_FOLDER.mkdir(parents=True, exist_ok=True)
 DOWNLOAD_FOLDER.mkdir(parents=True, exist_ok=True)
 OCR_FOLDER.mkdir(parents=True, exist_ok=True)
+DONE_FOLDER.mkdir(parents=True, exist_ok=True)
 DATABASE_PATH.parent.mkdir(parents=True, exist_ok=True)
 TELEGRAM_SESSION.parent.mkdir(parents=True, exist_ok=True)
 JWT_TOKEN.parent.mkdir(parents=True, exist_ok=True)
@@ -54,6 +56,7 @@ MLOL_USERNAME: str | None = _get_opt("MLOL_USERNAME")
 MLOL_PASSWORD: str | None = _get_opt("MLOL_PASSWORD")
 
 THRESHOLD_DATE: str | None = _get_opt("THRESHOLD_DATE")  # YYYYMMDD
+DELETE_AFTER_UPLOAD: bool = _get_bool("DELETE_AFTER_UPLOAD") or False
 
 __all__ = [
     "LOG_LEVEL",
@@ -71,4 +74,5 @@ __all__ = [
     "MLOL_USERNAME",
     "MLOL_PASSWORD",
     "THRESHOLD_DATE",
+    "DELETE_AFTER_UPLOAD",
 ]

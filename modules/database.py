@@ -1,5 +1,8 @@
 from peewee import *
 from datetime import datetime
+import json
+from pathlib import Path
+
 from modules import config
 
 db_path = str(config.DATABASE_PATH)
@@ -11,6 +14,7 @@ class BaseModel(Model):
 
 class Publication(BaseModel):
     name = CharField(unique=True)
+    display_name = CharField(null=True)
     issue_id = CharField()
     max_scale = IntegerField()
     language = CharField()
@@ -38,10 +42,6 @@ def init_db():
     db.connect()
     db.create_tables([Publication, FileWorkflow])
     
-    # Load publications from input.json
-    import json
-    from pathlib import Path
-    
     input_file = Path(__file__).parent.parent / "input.json"
     if input_file.exists():
         with open(input_file, 'r') as f:
@@ -52,7 +52,8 @@ def init_db():
                     defaults={
                         'issue_id': pub['issue_id'],
                         'max_scale': pub['max_scale'],
-                        'language': pub['language']
+                        'language': pub['language'],
+                        'display_name': pub.get('display_name', None)
                     }
                 )
     db.close()
