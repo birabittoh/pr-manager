@@ -2,9 +2,8 @@ import logging
 import time
 import threading
 from datetime import datetime
-import requests
+
 from modules.database import db, Publication, FileWorkflow
-from modules.jwt import get_jwt, invalidate_jwt
 from modules.download import download_issue
 from modules import config
 from modules.pdf import save_images_as_pdf
@@ -46,11 +45,10 @@ class DownloaderThread(threading.Thread):
 
         while True:
             try:
-                today = datetime.now().strftime("%Y%m%d")
-                
                 db.connect(reuse_if_open=True)
                 # Get FileWorkflows that are not yet downloaded
                 fws: list[FileWorkflow] = list(FileWorkflow.select().where((FileWorkflow.downloaded == False)))
+                db.close()
                 
                 for fw in fws:
                     self.download_issue(fw)
@@ -61,9 +59,7 @@ class DownloaderThread(threading.Thread):
                     fw.save()
                     db.close()
                 
-                # Sleep for 6 hours
-                sleep_hours = 6
-                time.sleep(3600 * sleep_hours)
+                time.sleep(30)
                 
             except Exception as e:
                 logger.error(f"Error in downloader thread: {e}")

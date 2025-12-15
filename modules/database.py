@@ -21,10 +21,11 @@ class Publication(BaseModel):
 class FileWorkflow(BaseModel):
     publication_name = CharField()
     date = CharField()
-    issue_id = CharField()
     downloaded = BooleanField(default=False)
     ocr_processed = BooleanField(default=False)
     uploaded = BooleanField(default=False)
+    channel_id = IntegerField(null=True)
+    message_id = IntegerField(null=True)
     created_at = DateTimeField(default=datetime.now)
     updated_at = DateTimeField(default=datetime.now)
     

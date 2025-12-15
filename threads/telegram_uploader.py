@@ -5,7 +5,6 @@ from pathlib import Path
 from datetime import datetime
 from telethon import TelegramClient
 from telethon.sessions import StringSession
-from telethon.errors import SessionPasswordNeededError
 from modules.database import Publication, db, FileWorkflow
 import asyncio
 from modules import config
@@ -132,6 +131,8 @@ class TelegramUploaderThread(threading.Thread):
             if workflow and result.id:
                 db.connect(reuse_if_open=True)
                 workflow.uploaded = True
+                workflow.channel_id = self.channel
+                workflow.message_id = result.id
                 workflow.updated_at = datetime.now()
                 workflow.save()
 

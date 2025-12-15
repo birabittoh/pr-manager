@@ -3,9 +3,8 @@ import time
 import threading
 from datetime import datetime
 from modules.database import db, Publication, FileWorkflow
-from modules.download import download_issue, get_issue_info
+from modules.download import get_issue_info
 from modules import config
-from modules.pdf import save_images_as_pdf
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +34,7 @@ class SchedulerThread(threading.Thread):
                 db.close()
                 
                 for pub in publications:
+                    time.sleep(5)
                     info = get_issue_info(str(pub.issue_id))
                     if info is None:
                         logger.error(f"Failed to get issue info for publication {pub.name}")
@@ -52,12 +52,12 @@ class SchedulerThread(threading.Thread):
                         logger.debug(f"Publication {pub.name}'s latest issue date {issue_date} is before threshold {self.threshold_date}")
                         continue
 
+                    logger.info(f"Found new issue for publication {pub.name} on {issue_date}")
                     db.connect(reuse_if_open=True)
                     # create an empty FileWorkflow if not exists
                     fw, created = FileWorkflow.get_or_create(
-                        publication=pub,
-                        issue_date=issue_date,
-                        issue_id=pub.issue_id,
+                        publication_name=pub.name,
+                        date=issue_date,
                         defaults={"downloaded": False}
                     )
                     db.close()
@@ -67,10 +67,9 @@ class SchedulerThread(threading.Thread):
                         continue
 
                     logger.info(f"Scheduling download for publication {pub.name} on {issue_date}")
-                    time.sleep(5)
                 
                 time.sleep(3600 * SLEEP_HOURS)
   
             except Exception as e:
-                logger.error(f"Error in downloader thread: {e}")
+                logger.error(f"Error in scheduler thread: {e}")
                 time.sleep(60)

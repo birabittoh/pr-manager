@@ -1,12 +1,7 @@
 import logging
-import os
 import sys
 import warnings
 from dotenv import load_dotenv
-from pathlib import Path
-import threading
-
-from threads.scheduler import SchedulerThread
 
 # Suppress all warnings
 warnings.filterwarnings("ignore")
@@ -27,25 +22,19 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
-# Create necessary directories and ensure data/ is used
-data_dir = Path("data")
-data_dir.mkdir(parents=True, exist_ok=True)
-# Ensure config-created folders exist
-config.DOWNLOAD_FOLDER.mkdir(parents=True, exist_ok=True)
-config.OCR_FOLDER.mkdir(parents=True, exist_ok=True)
-
 # Initialize database
 from modules.database import init_db
 init_db()
 
 # Import threads
+from threads.scheduler import SchedulerThread
 from threads.downloader import DownloaderThread
 from threads.ocr_processor import OCRProcessorThread
 from threads.telegram_uploader import TelegramUploaderThread
 from threads.api_server import start_api_server
 
 def main():
-    logger.info("Starting pr-manager")
+    logger.info("Starting PR Manager")
     
     # Start threads
     threads = []

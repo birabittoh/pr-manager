@@ -3,7 +3,7 @@ from datetime import datetime
 from pathlib import Path
 from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import HTMLResponse, FileResponse
+from fastapi.responses import HTMLResponse
 import uvicorn
 from modules.database import db, Publication, FileWorkflow
 from pydantic import BaseModel
@@ -119,6 +119,26 @@ async def get_workflow():
     workflows = list(FileWorkflow.select().order_by(FileWorkflow.created_at.desc()).limit(100).dicts())
     db.close()
     return workflows
+
+"""
+@app.get("/api/workflow/{publication_name}/{date_str}")
+async def get_downloaded_file(publication_name: str, date_str: str):
+    # Use the telethon client to download the file
+    db.connect(reuse_if_open=True)
+    workflow = FileWorkflow.get_or_none(
+        FileWorkflow.publication_name == publication_name,
+        FileWorkflow.date == date_str,
+        FileWorkflow.uploaded == True
+    )
+    db.close()
+
+    if not workflow:
+        raise HTTPException(status_code=404, detail="File not found or not uploaded yet")
+    
+    # ...
+    
+    return FileResponse(path=str(file_path), filename=filename, media_type='application/pdf')
+"""
 
 @app.post("/api/download")
 async def manual_download(request: ManualDownload):

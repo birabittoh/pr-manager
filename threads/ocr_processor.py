@@ -1,7 +1,6 @@
 import logging
 import time
 import threading
-from pathlib import Path
 from datetime import datetime
 import ocrmypdf
 from modules.database import db, FileWorkflow

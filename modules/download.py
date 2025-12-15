@@ -111,6 +111,7 @@ def get_issue_info(issue_id: str) -> dict | None:
     params = {}
 
     try:
+        logger.debug(f"Getting issue info for issue ID {issue_id}")
         response = authorized_request(url, params)
 
         if not response.ok:
@@ -156,6 +157,8 @@ def download_issue(name: str, issue_id: str, issue_date: str, max_scale: int) ->
     if l < 2:
         logger.warning("Issue has less than 2 pages.")
         return []
+
+    page_keys = sorted(page_keys, key=lambda x: x.get("PageNumber", 0))
 
     for page in page_keys:
         page_number = page.get("PageNumber")
