@@ -8,16 +8,9 @@ from telethon.sessions import StringSession
 from modules.database import Publication, db, FileWorkflow
 import asyncio
 from modules import config
-from modules.pdf import get_title_from_filename
+from modules.pdf import get_hashtag, get_title_from_filename
 
 logger = logging.getLogger(__name__)
-
-def get_hashtag(file_title: str) -> str:
-    """Generate hashtags based on file title
-       Corriere Della Sera - 14/12/2025 -> #CorriereDellaSera"""
-    name = file_title.split("-")[0].strip()
-    hashtag = "#" + "".join(name.split())
-    return hashtag
 
 class TelegramUploaderThread(threading.Thread):
     def __init__(self):
