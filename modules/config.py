@@ -61,6 +61,7 @@ SCHEDULER_TIME: str = _get_str("SCHEDULER_TIME", "05:00")
 MIN_SCALE: int = _get_int("MIN_SCALE", 50) or 50
 SCALE_STEP: int = _get_int("SCALE_STEP", 5) or 5
 MAX_RETRIES: int = _get_int("MAX_RETRIES", 10) or 10
+CHROMIUM_TIMEOUT: int = _get_int("CHROMIUM_TIMEOUT", 5000) or 5000
 
 __all__ = [
     "LOG_LEVEL",
@@ -83,4 +84,5 @@ __all__ = [
     "MIN_SCALE",
     "SCALE_STEP",
     "MAX_RETRIES",
+    "CHROMIUM_TIMEOUT",
 ]

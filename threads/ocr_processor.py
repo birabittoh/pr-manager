@@ -6,6 +6,9 @@ import ocrmypdf
 from modules.database import db, FileWorkflow
 from modules import config
 
+import warnings
+warnings.filterwarnings("ignore")
+
 logger = logging.getLogger(__name__)
 
 class OCRProcessorThread(threading.Thread):
@@ -50,7 +53,8 @@ class OCRProcessorThread(threading.Thread):
                 output_path,
                 skip_text=True,
                 optimize=0,
-                quiet=True
+                quiet=True,
+                progress_bar=False
             )
             
             # Update database

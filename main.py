@@ -72,4 +72,4 @@ def main():
     start_api_server()
 
 if __name__ == "__main__":
-    main()
+    exit(main())

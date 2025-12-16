@@ -1,9 +1,8 @@
 import datetime
 import sys
-import time
 import weakref
 import logging
-from pathlib import Path
+import json
 from threading import Lock
 
 from playwright.sync_api import Page, Response, TimeoutError, sync_playwright
@@ -12,7 +11,7 @@ import requests
 from modules import config
 
 # Constants
-TIMEOUT = 30000  # ms
+HEADLESS = True
 
 _jwt_file = config.JWT_TOKEN
 _jwt_cache = None
@@ -21,28 +20,25 @@ _jwt_lock = Lock()
 
 class Chromium(object):
     _instance = []
+    headless: bool = True
 
     def __init__(
         self,
         headless: bool = True,
-        trace: bool = False,
         timeout: int = 0,
     ):
-        self.trace = trace
+        self.headless = headless
         self.playwright = sync_playwright().start()
-        self.browser = self.playwright.chromium.launch(headless=headless)
+        self.browser = self.playwright.chromium.launch(headless=self.headless)
         self.context = self.browser.new_context(locale="en-GB")
         self.context.clear_cookies()
 
         self.timeout = timeout
         self.context.set_default_timeout(self.timeout)
-        if self.trace:
-            self.context.tracing.start(screenshots=True, snapshots=True)
 
     def __new__(
         cls,
         headless: bool = True,
-        trace: bool = False,
         timeout: int = 0,
     ):
         if Chromium._instance:
@@ -53,14 +49,9 @@ class Chromium(object):
             Chromium._instance.append(instance_local)
             return instance_local
 
-    def clean(self, debug_trace: bool = False):
+    def clean(self):
         logging.debug("Quitting Chromium...")
         if len(Chromium._instance) != 0:
-            try:
-                if debug_trace and self.trace:
-                    self.context.tracing.stop(path=str(Path("trace.zip")))
-            except Exception:
-                pass
             self.context.close()
             self.browser.close()
             self.playwright.stop()
@@ -69,7 +60,7 @@ class Chromium(object):
     @staticmethod
     def get_chromium():
         if len(Chromium._instance) == 0:
-            return Chromium(headless=True, trace=False, timeout=TIMEOUT)
+            return Chromium(headless=HEADLESS, timeout=config.CHROMIUM_TIMEOUT)
         return Chromium._instance[0]
 
     def visit_site(self, page: Page, url: str) -> Response | None:
@@ -97,7 +88,7 @@ def _config_page(page: Page):
     window_size = {"width": 1920, "height": 1080}
     page.wait_for_load_state()
     page.set_viewport_size(viewport_size=window_size)
-    page.set_default_timeout(TIMEOUT)
+    page.set_default_timeout(config.CHROMIUM_TIMEOUT)
 
 def _perform_mlol_login(page: Page, username: str, password: str, chromium: Chromium):
     logging.debug("Logging into MLOL...")
@@ -109,13 +100,13 @@ def _perform_mlol_login(page: Page, username: str, password: str, chromium: Chro
     try:
         warning_failed_login = (page.text_content(".page-title") or "").lower()
         if "avviso" in warning_failed_login:
-            chromium.clean(debug_trace=True)
+            chromium.clean()
             sys.exit("Login failed, please check your MLOL credentials!")
     except TimeoutError:
         pass
 
 
-def _mlol_to_pressreader(page: Page, chromium: Chromium) -> Page:
+def _get_auth_info(page: Page, chromium: Chromium) -> dict:
     # Clicking on catalogue
     typologies_menu_entry = page.query_selector("#caricatip")
     typologies_menu_entry.click()
@@ -127,17 +118,34 @@ def _mlol_to_pressreader(page: Page, chromium: Chromium) -> Page:
     corriere_sera = page.locator("text=Corriere della Sera")
     corriere_sera.nth(0).click()
 
-    pressreader_submit_button = page.locator(":nth-match(:text('SFOGLIA'), 1)")
+    # Find the "SFOGLIA" <a> element and navigate directly to its href in the current tab
+    pressreader_link = page.locator(":nth-match(:text('SFOGLIA'), 1)")
+    href = pressreader_link.get_attribute("href")
+    if not href:
+        return {}
 
-    with chromium.context.expect_page() as pressreader_blank_target:
-        pressreader_submit_button.click()
-    page_pressreader = pressreader_blank_target.value
-    page_pressreader.wait_for_load_state("domcontentloaded")
+    base_url = page.url.rsplit("/", 1)[0]
+    href = f"{base_url}/{href}"
 
-    assert "pressreader" in page_pressreader.title().lower(), Exception(
-        "Failed tab switch"
-    )
-    return page_pressreader
+    try:
+        with page.expect_response(lambda r: "preload" in r.url) as resp_info:
+            page.goto(href)
+        resp = resp_info.value
+        text = resp.text()
+
+        # handle JSONP response
+        if text.strip().startswith("loadCallback"):
+            start = text.find("(")
+            end = text.rfind(")")
+            payload = text[start + 1 : end]
+            response_json = json.loads(payload)
+        else:
+            response_json = resp.json()
+
+        return response_json.get("auth", {})
+
+    except TimeoutError:
+        return {}
 
 
 def _dismiss_mlol_modal(page: Page):
@@ -151,112 +159,37 @@ def _dismiss_mlol_modal(page: Page):
         pass
 
 
-def _handle_publication_button(p: Page):
-    try:
-        publication_button = p.wait_for_selector(
-            "xpath=//label[@data-bind='click: selectTitle']"
-        )
-        publication_button.click()
-    except TimeoutError:
-        pass
-
-
-def _login_pressreader(p: Page, username: str, password: str, chromium: Chromium):
-    logging.debug("Logging into Pressreader...")
-    p.fill("input[type='email']", username, timeout=0)
-    p.fill("input[type='password']", password, timeout=0)
-
-    try:
-        stay_signed_in_checkbox = p.wait_for_selector(".checkbox")
-        if stay_signed_in_checkbox.is_checked():
-            stay_signed_in_checkbox.click()
-    except TimeoutError:
-        pass
-
-    submit_button = p.wait_for_selector(
-        "xpath=//div[@class='pop-group']/a[@role='link']"
-    )
-    submit_button.click()
-
-    # Subscribe to login response for forbidden
-    def _on_response(r: Response):
-        if "Authentication/SignIn" in r.url:
-            if r.status == 403:
-                chromium.clean(debug_trace=True)
-                sys.exit("Access denied to PressReader!")
-
-    p.on("response", _on_response)
-
-    # Failed login detection
-    try:
-        wrong_credentials_warning = p.query_selector(".infomsg >> text=Invalid")
-        if wrong_credentials_warning and wrong_credentials_warning.is_visible():
-            chromium.clean(debug_trace=True)
-            sys.exit("Login failed, please check your Pressreader credentials!")
-    except TimeoutError:
-        pass
-
-
-def _logout_safe(p: Page):
-    try:
-        profile_dialog_menu = p.wait_for_selector(".userphoto-title")
-        profile_dialog_menu.click()
-        logout_item = p.wait_for_selector(".pri-logout")
-        logout_item.click()
-    except TimeoutError:
-        pass
-
-
-def _get_jwt_logic() -> str:
+def _get_jwt_logic() -> tuple[str, datetime.datetime]:
     """Return JWT token captured from PressReader GetPageKeys request."""
     if not config.MLOL_USERNAME or not config.MLOL_PASSWORD:
         sys.exit("MLOL credentials are not set in environment variables!")
 
-    chromium = Chromium(headless=True, trace=False, timeout=TIMEOUT)
+    chromium = Chromium.get_chromium()
     chromium.context.on("page", _config_page)
     chromium.context.new_page()
 
     try:
-        # MLOL entry and login
         logging.debug("Visiting MLOL...")
         page = chromium.context.pages[0]
         chromium.visit_site(page, config.MLOL_WEBSITE)  # entrypoint
         _perform_mlol_login(page, config.MLOL_USERNAME, config.MLOL_PASSWORD, chromium)
         _dismiss_mlol_modal(page)
-        press_page = _mlol_to_pressreader(page, chromium)
+        auth_info = _get_auth_info(page, chromium)
 
-        time.sleep(5)
-
-        today = datetime.datetime.now().strftime("%Y%m%d")
-
-        # Navigate to a specific publication page and capture JWT
-        press_page.goto(f"https://www.pressreader.com/italy/corriere-della-sera/{today}/page/1")
-        logging.info("Waiting for GetPageKeys request...")
-
-        try:
-            request = press_page.wait_for_event(
-                "request",
-                timeout=10000,
-                predicate=lambda req: "GetPageKeys" in req.url
-                and req.headers.get("authorization", "").startswith("Bearer "),
-            )
-            auth_header = request.headers.get("authorization")
-            jwt_token = auth_header[len("Bearer "):] if auth_header else None
-        except TimeoutError:
-            jwt_token = None
+        #token = auth_info.get("Token", None)
+        #user_key = auth_info.get("UserKey", None)
+        #use_geolocation = auth_info.get("UseGeoLocation", False)
+        jwt_token = auth_info.get("BearerToken", None)
+        expires_in = auth_info.get("ExpiresIn", 0)
 
         if not jwt_token:
-            chromium.clean(debug_trace=True)
-            sys.exit("JWT token not found in request headers!")
+            sys.exit("JWT token not found!")
 
-        logging.info("JWT token captured successfully.")
-        return jwt_token
+        expected_expiry = datetime.datetime.now() + datetime.timedelta(seconds=expires_in)
+        logging.info("JWT token captured successfully. Expires at %s", expected_expiry.isoformat())
+        return jwt_token, expected_expiry
 
     finally:
-        #try:
-        #    _logout_safe(press_page)
-        #except Exception:
-        #    pass
         chromium.clean()
 
 def get_jwt() -> str:
@@ -279,7 +212,7 @@ def get_jwt() -> str:
                     return _jwt_cache
         
         logging.info("Retrieving new JWT...")
-        _jwt_cache = _get_jwt_logic()
+        _jwt_cache, _ = _get_jwt_logic()
 
         # save to file
         with open(_jwt_file, "w") as f:
@@ -324,5 +257,6 @@ if __name__ == "__main__":
         datefmt="%Y-%m-%d %H:%M:%S",
     )
 
-    token = _get_jwt_logic()
+    token, expiration = _get_jwt_logic()
     logging.info(f"JWT Token: {token}")
+    logging.info(f"Expires at: {expiration}")
