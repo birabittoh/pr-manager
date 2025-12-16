@@ -7,6 +7,8 @@ month_names = [
     "luglio", "agosto", "settembre", "ottobre", "novembre", "dicembre"
 ]
 
+to_be_removed = " ',.!?;:-_()\""
+
 separator = " — "
 
 def get_title_from_filename(filename: Path) -> str:
@@ -33,8 +35,8 @@ def get_title_from_filename(filename: Path) -> str:
 def get_hashtag(file_title: str) -> str:
     """Generate hashtags based on file title
        L'Uncinetto di Giò — 14 dicembre 2025 -> #LUncinettoDiGiò"""
-    name = file_title.split(separator)[0].strip().title().replace("'", "").replace(" ", "")
-    return "#" + name
+    name = file_title.split(separator)[0].strip().title()
+    return "#" + "".join([c for c in name if c not in to_be_removed])
 
 
 def save_images_as_pdf(images: list[bytes], output_path: Path) -> None:
