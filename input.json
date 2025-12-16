@@ -3,7 +3,6 @@
         "name": "civilta-dei-dati",
         "display_name": "Civiltà dei Dati",
         "issue_id": "22xt",
-        "issue_dates": [],
         "max_scale": "457",
         "language": "ita"
     },
@@ -11,7 +10,6 @@
         "name": "retro-gamer",
         "display_name": "Retro Gamer (UK)",
         "issue_id": "9knk",
-        "issue_dates": [],
         "max_scale": "342",
         "language": "eng"
     },
@@ -19,14 +17,12 @@
         "name": "pc-gamer-uk",
         "display_name": "PC Gamer",
         "issue_id": "9631",
-        "issue_dates": [],
         "max_scale": "346",
         "language": "eng"
     },
     {
         "name": "scienze",
         "issue_id": "347h",
-        "issue_dates": [],
         "max_scale": "357",
         "language": "ita"
     },
@@ -34,7 +30,6 @@
         "name": "piu-maglia-bebe",
         "display_name": "Più Maglia Bebè",
         "issue_id": "348h",
-        "issue_dates": [],
         "max_scale": "357",
         "language": "ita"
     },
@@ -42,7 +37,6 @@
         "name": "l-uncinetto-di-gio",
         "display_name": "L'uncinetto di Giò",
         "issue_id": "345t",
-        "issue_dates": [],
         "max_scale": "357",
         "language": "ita"
     },
@@ -50,21 +44,18 @@
         "name": "uncinetto-di-gio-plus",
         "display_name": "L'uncinetto di Giò Plus",
         "issue_id": "350s",
-        "issue_dates": [],
         "max_scale": "356",
         "language": "ita"
     },
     {
         "name": "i-love-amigurumi",
         "issue_id": "345n",
-        "issue_dates": [],
         "max_scale": "357",
         "language": "ita"
     },
     {
         "name": "i-love-punto-croce-speciale",
         "issue_id": "348w",
-        "issue_dates": [],
         "max_scale": "357",
         "language": "ita"
     },
@@ -72,35 +63,30 @@
         "name": "focus-italy",
         "display_name": "Focus",
         "issue_id": "36a5",
-        "issue_dates": [],
         "max_scale": "358",
         "language": "ita"
     },
     {
         "name": "gatto-magazine",
         "issue_id": "347e",
-        "issue_dates": [],
         "max_scale": "357",
         "language": "ita"
     },
     {
         "name": "anime-cult",
         "issue_id": "368v",
-        "issue_dates": [],
         "max_scale": "357",
         "language": "ita"
     },
     {
         "name": "anime-cult-speciale",
         "issue_id": "36bl",
-        "issue_dates": [],
         "max_scale": "357",
         "language": "ita"
     },
     {
         "name": "linux-pro",
         "issue_id": "346o",
-        "issue_dates": [],
         "max_scale": "357",
         "language": "ita"
     },
@@ -109,14 +95,12 @@
         "display_name": "L'Unità",
         "issue_id": "9bpc",
         "max_scale": "234",
-        "language": "ita",
-        "issue_dates": []
+        "language": "ita"
     },
     {
         "name": "retro-gamer-1",
         "display_name": "Retro Gamer",
         "issue_id": "234p",
-        "issue_dates": [],
         "max_scale": "357",
         "language": "ita"
     }

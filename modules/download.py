@@ -15,10 +15,10 @@ def _format_issue_number(issue_id: str, issue_date: str) -> str:
     return ISSUE_NUMBER_FMT.format(issue_id=issue_id, issue_date=issue_date)
 
 
-def _download_image(issue_number: str, scale: str, page_number: int, key: str) -> bytes | None:
+def _download_image(issue_number: str, scale: int, page_number: int, key: str) -> bytes | None:
     """Download a single page image"""
     url = "https://i.prcdn.co/img"
-    current_scale = int(scale)
+    current_scale = scale
     retries = 0
     
     while current_scale >= config.MIN_SCALE:
@@ -79,7 +79,7 @@ def _download_image(issue_number: str, scale: str, page_number: int, key: str) -
     return None
 
 
-def _get_page_keys(issue_id: str, issue_date: str) -> dict | None:
+def get_page_keys(issue_id: str, issue_date: str) -> list[dict[str,str]] | None:
     """Get page keys for an issue"""
     url = "https://ingress.pressreader.com/services/IssueInfo/GetPageKeys"
     params = {
@@ -95,7 +95,12 @@ def _get_page_keys(issue_id: str, issue_date: str) -> dict | None:
             logger.error(f"Error in request: {response.status_code}")
             return None
             
-        return response.json()
+        response_data = response.json()
+        page_keys = response_data.get("PageKeys", [])
+        if not page_keys:
+            logger.warning("No pages reported by API.")
+            return None
+        return page_keys
         
     except Exception as e:
         logger.error(f"Exception getting page keys: {e}")
@@ -120,7 +125,7 @@ def get_issue_info(issue_id: str) -> dict | None:
         return None
     #
 
-def download_issue(name: str, issue_id: str, issue_date: str, max_scale: int) -> list[bytes]:
+def download_issue(name: str, issue_id: str, issue_date: str, max_scale: int, page_keys: list[dict[str,str]]) -> list[bytes]:
     """Download all page images for a given issue.
 
     Args:
@@ -132,38 +137,27 @@ def download_issue(name: str, issue_id: str, issue_date: str, max_scale: int) ->
     Returns:
         List of bytes objects containing image bytes for each successfully downloaded page.
     """
-    logger.info(f"Fetching page keys for {name} ({issue_id}) on {issue_date}...")
-    response_data = _get_page_keys(issue_id, issue_date)
-
-    if response_data is None:
-        logger.error(f"Failed to get page keys; aborting.")
-        return []
 
     issue_number = _format_issue_number(issue_id, issue_date)
     images: list[bytes] = []
 
-    page_keys = response_data.get("PageKeys", [])
-    if not page_keys:
-        logger.warning("No pages reported by API.")
-        return []
-
     l = len(page_keys)
     logging.debug(f"Issue has {l} pages.")
 
-    if l < 2:
+    if l <= 1:
         logger.warning("Issue has less than 2 pages.")
         return []
 
     page_keys = sorted(page_keys, key=lambda x: x.get("PageNumber", 0))
 
-    for page in page_keys:
-        page_number = page.get("PageNumber")
+    for index, page in enumerate(page_keys):
+        page_number = int(page.get("PageNumber") or index)
         key = page.get("Key")
-        if page_number is None or key is None:
-            logger.warning("Skipping page with missing PageNumber/Key.")
+        if key is None:
+            logger.warning(f"Skipping page {page_number} with missing Key.")
             continue
 
-        img_bytes = _download_image(issue_number, str(max_scale), int(page_number), str(key))
+        img_bytes = _download_image(issue_number, max_scale, page_number, key)
         if img_bytes:
             images.append(img_bytes)
         else:
