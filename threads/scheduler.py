@@ -4,6 +4,7 @@ import threading
 from datetime import datetime
 from modules.database import db, Publication, FileWorkflow
 from modules.download import get_issue_info
+from modules.utils import date_format
 from modules import config
 
 import schedule
@@ -12,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 def find_new_issues(threshold_date: str):
     try:
-        today = datetime.now().strftime("%Y%m%d")
+        today = datetime.now().strftime(date_format)
 
         db.connect(reuse_if_open=True)
         publications: list[Publication] = list(
@@ -63,7 +64,7 @@ def find_new_issues(threshold_date: str):
 
 class SchedulerThread(threading.Thread):
     def __init__(self):
-        super().__init__()
+        super().__init__(daemon=True, name="SchedulerThread")
 
         threshold_date = config.THRESHOLD_DATE
         scheduler_time = config.SCHEDULER_TIME

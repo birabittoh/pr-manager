@@ -1,11 +1,15 @@
 import logging
 from datetime import datetime
 from pathlib import Path
+import os
+
+from modules.database import db, Publication, FileWorkflow
+from modules.utils import get_key
+
 from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse
 import uvicorn
-from modules.database import db, Publication, FileWorkflow
 from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
@@ -135,8 +139,18 @@ async def get_downloaded_file(publication_name: str, date_str: str):
     if not workflow:
         raise HTTPException(status_code=404, detail="File not found or not uploaded yet")
     
-    # ...
+    filename = get_key(publication_name, date_str)
     
+    client = manager.get_client()
+    async def get_file():
+        async with client:
+            file_path = await client.download_media(
+                message=client.iter_messages(workflow.channel_id, ids=workflow.message_id).__anext__(),
+                file=Path(os.tmpdir()) / filename
+            )
+            return file_path
+    
+    file_path = await get_file()
     return FileResponse(path=str(file_path), filename=filename, media_type='application/pdf')
 """
 

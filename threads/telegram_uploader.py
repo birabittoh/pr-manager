@@ -3,12 +3,14 @@ import time
 import threading
 from pathlib import Path
 from datetime import datetime
+import asyncio
+
+from modules import config
+from modules.database import Publication, db, FileWorkflow
+from modules.utils import get_caption, split_filename
+
 from telethon import TelegramClient
 from telethon.sessions import StringSession
-from modules.database import Publication, db, FileWorkflow
-import asyncio
-from modules import config
-from modules.utils import get_hashtag, get_title_from_filename
 
 logger = logging.getLogger(__name__)
 
@@ -85,22 +87,18 @@ class TelegramUploaderThread(threading.Thread):
         if self.client is None:
             raise RuntimeError("Telegram client is not initialized")
 
-        title = display_name if display_name else get_title_from_filename(pdf_file)
-        hashtag = get_hashtag(title)
+        caption = get_caption(pdf_file, display_name)
 
         return await self.client.send_file(
             self.channel,
             pdf_file.__str__(),
-            caption=f"{title}\n\n{hashtag}"
+            caption=caption
         )
     
     def upload_file(self, pdf_file: Path):
         """Upload a single PDF file to Telegram"""
         try:
-            # Parse filename: name_YYYYmmdd.pdf
-            filename = pdf_file.stem
-            publication_name = "_".join(filename.split("_")[:-1])
-            date_str = filename.split("_")[-1]
+            publication_name, date_str = split_filename(pdf_file)
             
             # Check if already uploaded
             db.connect(reuse_if_open=True)

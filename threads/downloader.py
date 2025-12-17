@@ -5,17 +5,16 @@ from datetime import datetime
 
 from modules.database import db, Publication, FileWorkflow
 from modules.download import get_page_keys, download_issue
+from modules.utils import temp_suffix, get_fw_key
 from modules import config
-from modules.pdf import save_images_as_pdf
+
+import img2pdf
 
 logger = logging.getLogger(__name__)
 
-def get_fw_key(fw: FileWorkflow) -> str:
-    return f"{fw.publication_name}_{fw.date}"
-
 class DownloaderThread(threading.Thread):
     def __init__(self):
-        super().__init__()
+        super().__init__(daemon=True, name="DownloaderThread")
         self.download_folder = config.DOWNLOAD_FOLDER
     
     def run(self):
@@ -56,8 +55,8 @@ class DownloaderThread(threading.Thread):
                         logger.error(f"Skipping download for {fw.publication_name} on {fw.date}: could not retrieve page keys")
                         continue
                     
-                    filename = f"{fw.publication_name}_{fw.date}.temp.pdf"
-                    filepath = self.download_folder / filename
+                    filename = fw_key + temp_suffix
+                    output_path = self.download_folder / filename
 
                     publication = pubs_map.get(str(fw.publication_name))
                     if publication is None:
@@ -81,7 +80,11 @@ class DownloaderThread(threading.Thread):
                             logger.warning(f"Not enough images downloaded for {filename} ({len(images)}); skipping PDF creation.")
                             return
 
-                        save_images_as_pdf(images, filepath)
+                        logger.info(f"Saving as PDF...")
+                        pdf_bytes = img2pdf.convert(images)
+                        with open(output_path, 'wb') as f:
+                            f.write(pdf_bytes)
+
                         logger.info(f"Successfully downloaded {filename}")
 
                     except Exception as e:

@@ -1,9 +1,10 @@
-from peewee import *
-from datetime import datetime
 import json
+from datetime import datetime
 from pathlib import Path
 
 from modules import config
+
+from peewee import SqliteDatabase, Model, CharField, IntegerField, BooleanField, DateTimeField
 
 db_path = str(config.DATABASE_PATH)
 db = SqliteDatabase(db_path)

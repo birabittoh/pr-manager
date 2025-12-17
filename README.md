@@ -2,32 +2,37 @@
 
 A multithreaded Python application for downloading, OCR processing, and uploading publications.
 
-## Setup
+## Setup (Debian)
 
 1. Install dependencies:
-```bash
-pip install -r requirements.txt
-```
+   ```bash
+   sudo apt install python3.13-venv tesseract-ocr-ita ghostscript
+   python3 -m venv .venv
+   source .venv/bin/activate
+   pip install -r requirements.txt
+   python -m playwright install --with-deps chromium
+   ```
 
-2. Configure environment variables in `.env`:
-   - Set your Telegram API credentials
-   - Adjust paths and settings as needed
+2. Set your credentials in `.env`:
+   ```bash
+   cp .env.example .env
+   ```
 
-   Note: The Telegram uploader is non-interactive. Create a Telegram session before starting the service:
+3. Create a Telegram session file:
    ```bash
    python telegram_login.py
    ```
-   The helper will prompt for your phone and code and save the session to the path configured by TELEGRAM_SESSION in modules/config.py.
 
-3. Run the application:
-```bash
-python main.py
-```
+4. Run the application:
+   ```bash
+   python main.py
+   ```
 
-4. Access the web interface at http://localhost:8000
+5. Access the web interface at http://localhost:8000
 
 ## Architecture
 
+- **Scheduler Thread**: Starts each workflow
 - **Downloader Thread**: Downloads publications
 - **OCR Processor Thread**: Processes PDFs with OCR
 - **Telegram Uploader Thread**: Uploads processed files to Telegram
@@ -40,3 +45,6 @@ python main.py
 - Web interface for managing publications
 - Manual download trigger
 - Workflow tracking
+
+## License
+PR Manager is provided under the MIT license.

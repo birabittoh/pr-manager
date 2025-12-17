@@ -1,31 +1,30 @@
 import logging
+from pathlib import Path
 import time
 import threading
 from datetime import datetime
 import ocrmypdf
 from modules.database import db, FileWorkflow
+from modules.utils import split_filename, temp_suffix, get_key
 from modules import config
 
 import warnings
+
 warnings.filterwarnings("ignore")
 
 logger = logging.getLogger(__name__)
 
 class OCRProcessorThread(threading.Thread):
     def __init__(self):
-        super().__init__()
+        super().__init__(daemon=True, name="OCRProcessorThread")
         self.download_folder = config.DOWNLOAD_FOLDER
         self.ocr_folder = config.OCR_FOLDER
         
-    def process_file(self, temp_file):
+    def process_file(self, temp_file: Path):
         """Process a single temp PDF file with OCR"""
         try:
-            # Parse filename: name_YYYYmmdd.temp.pdf
-            filename = temp_file.stem.replace(".temp", "")
-            publication_name = "_".join(filename.split("_")[:-1])
-            date_str = filename.split("_")[-1]
-            
-            output_filename = f"{filename}.pdf"
+            publication_name, date_str = split_filename(temp_file)
+            output_filename = get_key(publication_name, date_str)
             output_path = self.ocr_folder / output_filename
             
             # Check if already processed
@@ -78,7 +77,7 @@ class OCRProcessorThread(threading.Thread):
         while True:
             try:
                 # Find all .temp.pdf files
-                temp_files = list(self.download_folder.glob("*.temp.pdf"))
+                temp_files = list(self.download_folder.glob("*" + temp_suffix))
                 
                 for temp_file in temp_files:
                     self.process_file(temp_file)
