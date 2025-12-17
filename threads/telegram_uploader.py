@@ -8,7 +8,7 @@ from telethon.sessions import StringSession
 from modules.database import Publication, db, FileWorkflow
 import asyncio
 from modules import config
-from modules.pdf import get_hashtag, get_title_from_filename
+from modules.utils import get_hashtag, get_title_from_filename
 
 logger = logging.getLogger(__name__)
 
