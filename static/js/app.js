@@ -1,21 +1,51 @@
+let publications = [];
+
 // Check health status
 async function checkHealth() {
     try {
         const response = await fetch('/api/health');
         const data = await response.json();
-        document.getElementById('statusIndicator').className = 'status-indicator online';
-        document.getElementById('statusText').textContent = 'Online';
+
+        const online = data.status === 'ok';
+        const serverTime = new Date(data.timestamp);
+        const serverTimeStr = serverTime.getHours().toString().padStart(2, '0') + ':' + serverTime.getMinutes().toString().padStart(2, '0')
+        document.getElementById('statusIndicator').className = 'status-indicator' + (online ? ' online' : '');
+        
+        const nextSecs = Math.max(0, Math.floor(Number(data.next_check_in_seconds) || 0));
+        const fmtNext = (secs) => {
+            const h = Math.floor(secs / 3600);
+            const m = Math.floor((secs % 3600) / 60);
+            if (h > 0 && m > 0) return `${h}h ${m}m`;
+            if (h > 0) return `${h}h`;
+            if (m > 0) return `${m}m`;
+            return '<1m';
+        };
+
+        const nextText = nextSecs ? ` — Next check in ${fmtNext(nextSecs)}` : '';
+        document.getElementById('statusText').textContent = (online ? `Online (${serverTimeStr})` : 'Warning') + nextText;
     } catch (error) {
         document.getElementById('statusIndicator').className = 'status-indicator';
         document.getElementById('statusText').textContent = 'Offline';
     }
 }
 
+function parsePublicationName(name) {
+    return name.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+}
+
+function getPublicationDisplayName(pub) {
+    if (pub.display_name) {
+        return pub.display_name;
+    }
+
+    return parsePublicationName(pub.name);
+}
+
 // Load publications
 async function loadPublications() {
     try {
         const response = await fetch('/api/publications');
-        const publications = await response.json();
+        publications = await response.json();
         
         const list = document.getElementById('publicationsList');
         const select = document.getElementById('manualPub');
@@ -25,13 +55,14 @@ async function loadPublications() {
         
         publications.forEach(pub => {
             // Add to list
+            const displayName = getPublicationDisplayName(pub);
             const item = document.createElement('div');
             item.className = 'publication-item';
             item.innerHTML = `
                 <div class="publication-info">
-                    <div class="publication-name">${pub.name}</div>
+                    <div class="publication-name">${displayName}</div>
                     <div class="publication-details">
-                        Issue ID: ${pub.issue_id} | Max Scale: ${pub.max_scale} | Language: ${pub.language}
+                        Name: ${pub.name} | Issue ID: ${pub.issue_id} | Max Scale: ${pub.max_scale} | Language: ${pub.language}
                     </div>
                 </div>
                 <div class="publication-actions">
@@ -48,7 +79,7 @@ async function loadPublications() {
             // Add to select
             const option = document.createElement('option');
             option.value = pub.name;
-            option.textContent = pub.name;
+            option.textContent = displayName;
             select.appendChild(option);
         });
     } catch (error) {
@@ -91,9 +122,10 @@ function showAddPublicationForm() {
 function hideAddPublicationForm() {
     document.getElementById('addPublicationForm').style.display = 'none';
     document.getElementById('newName').value = '';
+    document.getElementById('newDisplayName').value = '';
     document.getElementById('newIssueId').value = '';
-    document.getElementById('newMaxScale').value = '';
-    document.getElementById('newLanguage').value = '';
+    document.getElementById('newMaxScale').value = '357';
+    document.getElementById('newLanguage').value = 'ita';
 }
 
 // Add publication
@@ -102,6 +134,7 @@ async function addPublication(event) {
     
     const data = {
         name: document.getElementById('newName').value,
+        display_name: document.getElementById('newDisplayName').value || null,
         issue_id: document.getElementById('newIssueId').value,
         max_scale: parseInt(document.getElementById('newMaxScale').value),
         language: document.getElementById('newLanguage').value
@@ -154,6 +187,13 @@ async function loadWorkflow() {
         workflows.forEach(wf => {
             const item = document.createElement('div');
             item.className = 'workflow-item';
+
+            pub = publications.find(p => p.name === wf.publication_name);
+            if (pub) {
+                wf.publication_display_name = getPublicationDisplayName(pub);
+            } else {
+                wf.publication_display_name = parsePublicationName(wf.publication_name);
+            }
             
             const statuses = [];
             if (wf.downloaded) statuses.push('<span class="status-badge completed">Downloaded</span>');
@@ -167,7 +207,7 @@ async function loadWorkflow() {
             
             item.innerHTML = `
                 <div class="workflow-info">
-                    <div class="workflow-name">${wf.publication_name}</div>
+                    <div class="workflow-name">${wf.publication_display_name}</div>
                     <div class="workflow-date">${wf.date}</div>
                 </div>
                 <div class="workflow-status">

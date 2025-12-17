@@ -64,7 +64,13 @@ async def root():
 @app.get("/api/health")
 async def health():
     """Health check endpoint"""
-    return {"status": "ok", "timestamp": datetime.now().isoformat()}
+    now = datetime.now()
+    hour, minute = map(int, config.SCHEDULER_TIME.split(":"))
+    next_check_time = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
+    if next_check_time <= now:
+        next_check_time = next_check_time.replace(day=now.day + 1)
+    next_check_in_seconds = (next_check_time - now).total_seconds()
+    return {"status": "ok", "timestamp": datetime.now().isoformat(), "next_check_in_seconds": next_check_in_seconds}
 
 @app.get("/api/publications")
 async def get_publications():
