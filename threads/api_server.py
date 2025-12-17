@@ -1,10 +1,12 @@
 import logging
 from datetime import datetime
 from pathlib import Path
-import os
+import asyncio
 
 from modules.database import db, Publication, FileWorkflow
 from modules.utils import get_key
+from modules.telegram import download_file_from_telegram
+from modules import config
 
 from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
@@ -19,6 +21,22 @@ app = FastAPI(title="PR Manager API")
 # Mount static files
 static_path = Path(__file__).parent.parent / "static"
 app.mount("/static", StaticFiles(directory=str(static_path)), name="static")
+
+async def _delete_file_later(path: Path, delay: int = 300):
+    """Delete a file after a delay, ensuring it's inside the DONE_FOLDER."""
+    await asyncio.sleep(delay)
+    try:
+        # Safety: ensure we only delete files under config.DONE_FOLDER
+        try:
+            path.resolve().relative_to(config.DONE_FOLDER.resolve())
+        except Exception:
+            logger.warning(f"Refusing to delete {path}: not inside DONE_FOLDER")
+            return
+        if path.exists():
+            path.unlink()
+            logger.info(f"Deleted file {path} after {delay} seconds")
+    except Exception as e:
+        logger.error(f"Failed to delete {path}: {e}")
 
 class PublicationUpdate(BaseModel):
     enabled: bool | None = None
@@ -124,10 +142,10 @@ async def get_workflow():
     db.close()
     return workflows
 
-"""
 @app.get("/api/workflow/{publication_name}/{date_str}")
 async def get_downloaded_file(publication_name: str, date_str: str):
-    # Use the telethon client to download the file
+    """Download a PDF file from Telegram"""
+    # Check if file exists and is uploaded
     db.connect(reuse_if_open=True)
     workflow = FileWorkflow.get_or_none(
         FileWorkflow.publication_name == publication_name,
@@ -137,22 +155,62 @@ async def get_downloaded_file(publication_name: str, date_str: str):
     db.close()
 
     if not workflow:
-        raise HTTPException(status_code=404, detail="File not found or not uploaded yet")
+        raise HTTPException(
+            status_code=404, 
+            detail="File not found or not uploaded yet"
+        )
     
-    filename = get_key(publication_name, date_str)
+    if workflow.channel_id is None or workflow.message_id is None:
+        raise HTTPException(
+            status_code=500,
+            detail="File metadata incomplete (missing channel_id or message_id)"
+        )
+
+    # Generate filename
+    filename = get_key(publication_name, date_str) + ".pdf"
     
-    client = manager.get_client()
-    async def get_file():
-        async with client:
-            file_path = await client.download_media(
-                message=client.iter_messages(workflow.channel_id, ids=workflow.message_id).__anext__(),
-                file=Path(os.tmpdir()) / filename
-            )
-            return file_path
+    # Save file into DONE_FOLDER
+    done_file = config.DONE_FOLDER / filename
+    if done_file.exists():
+        logger.info(f"Serving existing file {done_file} from DONE_FOLDER")
+        return FileResponse(
+            path=str(done_file),
+            filename=filename,
+            media_type='application/pdf',
+        )
     
-    file_path = await get_file()
-    return FileResponse(path=str(file_path), filename=filename, media_type='application/pdf')
-"""
+    try:
+        # Download file from Telegram into DONE_FOLDER
+        logger.info(f"Downloading {filename} from Telegram (channel: {workflow.channel_id}, message: {workflow.message_id})")
+        
+        downloaded_path = await download_file_from_telegram(
+            channel_id=workflow.channel_id,
+            message_id=workflow.message_id,
+            output_path=done_file
+        )
+
+        if config.DELETE_AFTER_DONE:
+            try:
+                asyncio.create_task(_delete_file_later(downloaded_path, 300))
+            except Exception as e:
+                logger.error(f"Failed to schedule deletion for {downloaded_path}: {e}")
+        
+        # Return file as download
+        return FileResponse(
+            path=str(downloaded_path),
+            filename=filename,
+            media_type='application/pdf',
+        )
+        
+    except ValueError as e:
+        logger.error(f"Error downloading file: {e}")
+        raise HTTPException(status_code=404, detail=str(e))
+    except RuntimeError as e:
+        logger.error(f"Error downloading file: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+    except Exception as e:
+        logger.error(f"Unexpected error downloading file: {e}")
+        raise HTTPException(status_code=500, detail="Failed to download file from Telegram")
 
 @app.post("/api/download")
 async def manual_download(request: ManualDownload):

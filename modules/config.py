@@ -56,7 +56,7 @@ MLOL_USERNAME: str | None = _get_opt("MLOL_USERNAME")
 MLOL_PASSWORD: str | None = _get_opt("MLOL_PASSWORD")
 
 THRESHOLD_DATE: str = _get_str("THRESHOLD_DATE", "19700101")
-DELETE_AFTER_UPLOAD: bool = _get_bool("DELETE_AFTER_UPLOAD") or False
+DELETE_AFTER_DONE: bool = _get_bool("DELETE_AFTER_DONE") or False
 SCHEDULER_TIME: str = _get_str("SCHEDULER_TIME", "05:00")
 MIN_SCALE: int = _get_int("MIN_SCALE", 50) or 50
 SCALE_STEP: int = _get_int("SCALE_STEP", 5) or 5
@@ -79,7 +79,7 @@ __all__ = [
     "MLOL_USERNAME",
     "MLOL_PASSWORD",
     "THRESHOLD_DATE",
-    "DELETE_AFTER_UPLOAD",
+    "DELETE_AFTER_DONE",
     "SCHEDULER_TIME",
     "MIN_SCALE",
     "SCALE_STEP",

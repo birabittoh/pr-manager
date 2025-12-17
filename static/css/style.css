@@ -301,3 +301,7 @@ input:focus, select:focus {
     background-color: #f44336;
     color: white;
 }
+
+.download-btn {
+    text-decoration: none;
+}

@@ -162,7 +162,7 @@ async function loadWorkflow() {
             if (wf.ocr_processed) statuses.push('<span class="status-badge completed">OCR</span>');
             else statuses.push('<span class="status-badge pending">No OCR</span>');
             
-            if (wf.uploaded) statuses.push(`<a href="/api/workflow/${wf.publication_name}/${wf.date}"><span class="status-badge completed">Uploaded</span></a>`);
+            if (wf.uploaded) statuses.push(`<a href="/api/workflow/${wf.publication_name}/${wf.date}" target="_blank" class="download-btn"><span class="status-badge completed">Uploaded</span></a>`);
             else statuses.push('<span class="status-badge pending">Not Uploaded</span>');
             
             item.innerHTML = `

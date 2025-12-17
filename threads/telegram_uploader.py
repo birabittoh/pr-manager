@@ -8,9 +8,9 @@ import asyncio
 from modules import config
 from modules.database import Publication, db, FileWorkflow
 from modules.utils import get_caption, split_filename
+from modules.telegram import get_telegram_credentials, create_telegram_client
 
 from telethon import TelegramClient
-from telethon.sessions import StringSession
 
 logger = logging.getLogger(__name__)
 
@@ -19,25 +19,9 @@ class TelegramUploaderThread(threading.Thread):
         super().__init__()
         self.ocr_folder = config.OCR_FOLDER
         self.done_folder = config.DONE_FOLDER
-        self.delete_after_upload = config.DELETE_AFTER_UPLOAD
-        api_id_env = config.TELEGRAM_API_ID
-        api_hash_env = config.TELEGRAM_API_HASH
-        channel_env = config.TELEGRAM_CHANNEL
-
-        if api_id_env is None or api_hash_env is None or channel_env is None:
-            raise ValueError("TELEGRAM_API_ID, TELEGRAM_API_HASH, and TELEGRAM_CHANNEL environment variables must be set")
-
-        # ensure api_id is int
-        self.api_id = int(api_id_env) if not isinstance(api_id_env, int) else api_id_env
-        self.api_hash = api_hash_env
-        # Convert channel to int if it's a numeric ID (starts with -100)
-        if isinstance(channel_env, int):
-            self.channel = channel_env
-        else:
-            if isinstance(channel_env, str) and channel_env.startswith("-100") and channel_env[1:].isdigit():
-                self.channel = int(channel_env)
-            else:
-                self.channel = channel_env
+        self.delete_after_done = config.DELETE_AFTER_DONE
+        
+        self.api_id, self.api_hash, self.channel = get_telegram_credentials()
         self.client: TelegramClient | None = None
         self.loop = asyncio.new_event_loop()
         
@@ -45,34 +29,14 @@ class TelegramUploaderThread(threading.Thread):
         """Setup Telegram client without interactive prompts.
         The session must be created beforehand using the telegram_login.py helper.
         """
-        session_file = config.TELEGRAM_SESSION
-
-        # Non-interactive behavior: require a pre-created session file.
-        if not session_file.exists():
-            logger.error(
-                "Telegram session file not found (%s). Create it with telegram_login.py before starting the service.",
-                session_file
-            )
-            return False
-
-        def create_client():
-            with open(session_file, 'r') as f:
-                session_string = f.read().strip()
-            return TelegramClient(StringSession(session_string), self.api_id, self.api_hash)
-
         async def async_setup():
-            client = create_client()
-            await client.connect()
-            if not await client.is_user_authorized():
-                # If the provided session is not authorized, require recreation using the helper script.
-                logger.error(
-                    "Telegram client is not authorized. Create a valid session with telegram_login.py"
-                )
-                client.disconnect()
-                # Raise instead of returning None so the coroutine always returns a valid client or raises.
-                raise RuntimeError("Telegram client not authorized; recreate session with telegram_login.py")
-            logger.info("Telegram client connected")
-            return client
+            try:
+                client = await create_telegram_client()
+                logger.info("Telegram uploader client connected")
+                return client
+            except Exception as e:
+                logger.error(f"Failed to setup Telegram client: {e}")
+                raise
 
         try:
             self.client = self.loop.run_until_complete(async_setup())
@@ -139,7 +103,7 @@ class TelegramUploaderThread(threading.Thread):
             
             logger.info(f"Successfully uploaded {pdf_file.name}")
             
-            if self.delete_after_upload:
+            if self.delete_after_done:
                 pdf_file.unlink(missing_ok=True)
             else:
                 done_path = self.done_folder / pdf_file.name
