@@ -30,40 +30,75 @@
             </section>
 
             <section class="panel">
-                <h2 id="recentWorkflows">Recent Workflows</h2>
-                <button onclick="loadWorkflow()" class="btn-secondary">Refresh</button>
-                <div id="workflowList" class="workflow-list"></div>
+                <div class="panel-header" onclick="togglePanel('workflowPanel')">
+                    <h2>Workflows</h2>
+                    <span class="collapse-icon" id="workflowPanelIcon">▼</span>
+                </div>
+                <div class="panel-content" id="workflowPanel">
+                    <div class="workflow-filters">
+                        <input type="text" id="workflowSearch" placeholder="Search by publication or date..." onkeyup="searchWorkflows()">
+                        <button onclick="loadWorkflow()" class="btn-secondary">Refresh</button>
+                    </div>
+                    <div id="workflowList" class="workflow-list"></div>
+                    <div class="pagination" id="workflowPagination"></div>
+                </div>
             </section>
 
             <section class="panel">
-                <h2 id="publications">Publications</h2>
-                <div class="actions">
-                    <button onclick="showAddPublicationForm()" class="btn">Add Publication</button>
-                    <button onclick="loadPublications()" class="btn-secondary">Refresh</button>
+                <div class="panel-header" onclick="togglePanel('publicationsPanel')">
+                    <h2>Publications</h2>
+                    <span class="collapse-icon" id="publicationsPanelIcon">▼</span>
                 </div>
-                
-                <div id="addPublicationForm" class="form-container" style="display: none;">
-                    <h3>Add New Publication</h3>
-                    <form onsubmit="addPublication(event)">
-                        <input type="text" id="newName" placeholder="Name" required>
-                        <input type="text" id="newDisplayName" placeholder="Display name (optional)">
-                        <input type="text" id="newIssueId" placeholder="Issue ID" maxlength="4" required>
-                        <input type="number" id="newMaxScale" placeholder="Max Scale" min="50" max="999" value="357" required>
-                        <select id="newLanguage" required>
-                            <option value="ita">Italian</option>
-                            <option value="eng">English</option>
-                            <option value="deu">German</option>
-                            <option value="fra">French</option>
-                            <option value="spa">Spanish</option>
-                        </select>
-                        <div class="form-actions">
-                            <button type="submit" class="btn">Add</button>
-                            <button type="button" onclick="hideAddPublicationForm()" class="btn-secondary">Cancel</button>
-                        </div>
-                    </form>
-                </div>
+                <div class="panel-content" id="publicationsPanel">
+                    <div class="actions">
+                        <button onclick="showAddPublicationForm()" class="btn">Add Publication</button>
+                        <button onclick="loadPublications()" class="btn-secondary">Refresh</button>
+                    </div>
+                    
+                    <div id="addPublicationForm" class="form-container" style="display: none;">
+                        <h3>Add New Publication</h3>
+                        <form onsubmit="addPublication(event)">
+                            <input type="text" id="newName" placeholder="Name" required>
+                            <input type="text" id="newDisplayName" placeholder="Display name (optional)">
+                            <input type="text" id="newIssueId" placeholder="Issue ID" maxlength="4" required>
+                            <input type="number" id="newMaxScale" placeholder="Max Scale" min="50" max="999" value="357" required>
+                            <select id="newLanguage" required>
+                                <option value="ita">Italian</option>
+                                <option value="eng">English</option>
+                                <option value="deu">German</option>
+                                <option value="fra">French</option>
+                                <option value="spa">Spanish</option>
+                            </select>
+                            <div class="form-actions">
+                                <button type="submit" class="btn">Add</button>
+                                <button type="button" onclick="hideAddPublicationForm()" class="btn-secondary">Cancel</button>
+                            </div>
+                        </form>
+                    </div>
 
-                <div id="publicationsList" class="list"></div>
+                    <div id="editPublicationForm" class="form-container" style="display: none;">
+                        <h3>Edit Publication</h3>
+                        <form onsubmit="updatePublication(event)">
+                            <input type="text" id="editName" placeholder="Name" disabled required>
+                            <input type="text" id="editDisplayName" placeholder="Display name (optional)">
+                            <input type="text" id="editIssueId" placeholder="Issue ID" maxlength="4" required>
+                            <input type="number" id="editMaxScale" placeholder="Max Scale" min="50" max="999" required>
+                            <select id="editLanguage" required>
+                                <option value="ita">Italian</option>
+                                <option value="eng">English</option>
+                                <option value="deu">German</option>
+                                <option value="fra">French</option>
+                                <option value="spa">Spanish</option>
+                            </select>
+                            <div class="form-actions">
+                                <button type="submit" class="btn">Save</button>
+                                <button type="button" onclick="hideEditPublicationForm(true)" class="btn-secondary">Cancel</button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <div id="publicationsList" class="list"></div>
+                </div>
             </section>
         </main>
     </div>

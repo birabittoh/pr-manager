@@ -69,6 +69,37 @@ h1 {
     border: 1px solid #3d3d3d;
 }
 
+.panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    cursor: pointer;
+    user-select: none;
+}
+
+.panel-header h2 {
+    margin: 0;
+}
+
+.collapse-icon {
+    font-size: 1.2em;
+    color: #4a9eff;
+    transition: transform 0.3s;
+}
+
+.collapse-icon.collapsed {
+    transform: rotate(-90deg);
+}
+
+.panel-content {
+    display: block;
+}
+
+.panel-content.collapsed {
+    display: none;
+}
+
 h2 {
     margin-bottom: 20px;
     color: #4a9eff;
@@ -114,6 +145,20 @@ h3 {
 
 .btn-secondary:hover {
     background-color: #4d4d4d;
+}
+
+.btn-warning {
+    background-color: #ff9800;
+    color: white;
+    border: none;
+    padding: 8px 15px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 0.9em;
+}
+
+.btn-warning:hover {
+    background-color: #f57c00;
 }
 
 .btn-danger {
@@ -239,9 +284,27 @@ input:focus, select:focus {
     border-color: #4a9eff;
 }
 
+input:disabled {
+    background-color: #1e1e1e;
+    color: #666;
+    cursor: not-allowed;
+}
+
 .form-actions {
     display: flex;
     gap: 10px;
+}
+
+.workflow-filters {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 15px;
+    flex-wrap: wrap;
+}
+
+.workflow-filters input {
+    flex: 1;
+    min-width: 200px;
 }
 
 .workflow-list {
@@ -304,4 +367,43 @@ input:focus, select:focus {
 
 .download-btn {
     text-decoration: none;
+}
+
+.pagination {
+    display: flex;
+    gap: 5px;
+    align-items: center;
+    justify-content: center;
+    margin-top: 15px;
+}
+
+.pagination button {
+    background-color: #3d3d3d;
+    color: #e0e0e0;
+    border: 1px solid #555;
+    padding: 8px 12px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 0.9em;
+    transition: background-color 0.2s;
+}
+
+.pagination button:hover:not(:disabled) {
+    background-color: #4d4d4d;
+}
+
+.pagination button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.pagination button.active {
+    background-color: #4a9eff;
+    border-color: #4a9eff;
+}
+
+.pagination .page-info {
+    color: #999;
+    font-size: 0.9em;
+    margin: 0 10px;
 }

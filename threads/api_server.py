@@ -8,7 +8,7 @@ from modules.utils import get_key
 from modules.telegram import download_file_from_telegram
 from modules import config
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, HTMLResponse
 import uvicorn
@@ -47,7 +47,7 @@ class PublicationUpdate(BaseModel):
 
 class PublicationCreate(BaseModel):
     name: str
-    display_name: str | None
+    display_name: str | None = None
     issue_id: str
     max_scale: int
     language: str
@@ -89,6 +89,7 @@ async def create_publication(pub: PublicationCreate):
     try:
         publication = Publication.create(
             name=pub.name,
+            display_name=pub.display_name,
             issue_id=pub.issue_id,
             max_scale=pub.max_scale,
             language=pub.language
@@ -96,6 +97,7 @@ async def create_publication(pub: PublicationCreate):
         result = {
             "id": publication.id,
             "name": publication.name,
+            "display_name": publication.display_name,
             "issue_id": publication.issue_id,
             "max_scale": publication.max_scale,
             "language": publication.language,
@@ -118,6 +120,8 @@ async def update_publication(name: str, update: PublicationUpdate):
     
     if update.enabled is not None:
         pub.enabled = update.enabled
+    if update.display_name is not None:
+        pub.display_name = update.display_name
     if update.issue_id is not None:
         pub.issue_id = update.issue_id
     if update.max_scale is not None:
@@ -143,12 +147,46 @@ async def delete_publication(name: str):
     return {"status": "deleted"}
 
 @app.get("/api/workflow")
-async def get_workflow():
-    """Get workflow status for all files"""
+async def get_workflow(
+    page: int = Query(1, ge=1),
+    limit: int = Query(20, ge=1, le=100),
+    search: str = Query("", description="Search by publication name or date")
+):
+    """Get workflow status for files with pagination and search"""
     db.connect(reuse_if_open=True)
-    workflows = list(FileWorkflow.select().order_by(FileWorkflow.created_at.desc()).limit(100).dicts())
+    
+    # Build query
+    query = FileWorkflow.select()
+    
+    # Apply search filter
+    if search:
+        search_lower = search.lower()
+        query = query.where(
+            (FileWorkflow.publication_name.contains(search_lower)) |
+            (FileWorkflow.date.contains(search))
+        )
+    
+    # Get total count
+    total_count = query.count()
+    total_pages = (total_count + limit - 1) // limit  # Ceiling division
+    
+    # Apply pagination
+    offset = (page - 1) * limit
+    workflows = list(
+        query.order_by(FileWorkflow.created_at.desc())
+        .limit(limit)
+        .offset(offset)
+        .dicts()
+    )
+    
     db.close()
-    return workflows
+    
+    return {
+        "workflows": workflows,
+        "page": page,
+        "limit": limit,
+        "total_pages": total_pages
+    }
 
 @app.get("/api/workflow/{publication_name}/{date_str}")
 async def get_downloaded_file(publication_name: str, date_str: str):
@@ -247,4 +285,4 @@ def start_api_server():
     host = config.API_HOST
     port = config.API_PORT
 
-    uvicorn.run(app, host=host, port=port)
+    uvicorn.run(app, host=host, port=port, log_level="info")
