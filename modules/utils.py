@@ -71,4 +71,4 @@ def get_fw_key(fw: FileWorkflow) -> str:
     return get_key(str(fw.publication_name), str(fw.date))
 
 def get_key(publication_name: str, date_str: str) -> str:
-    return publication_name + fw_separator + date_str
+    return publication_name + fw_separator + date_str + pdf_suffix

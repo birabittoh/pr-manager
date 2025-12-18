@@ -5,7 +5,7 @@ from datetime import datetime
 
 from modules.database import db, Publication, FileWorkflow
 from modules.download import get_page_keys, download_issue
-from modules.utils import temp_suffix, get_fw_key
+from modules.utils import pdf_suffix, temp_suffix, get_fw_key
 from modules import config
 
 import img2pdf
@@ -55,7 +55,7 @@ class DownloaderThread(threading.Thread):
                         logger.error(f"Skipping download for {fw.publication_name} on {fw.date}: could not retrieve page keys")
                         continue
                     
-                    filename = fw_key + temp_suffix
+                    filename = fw_key.replace(pdf_suffix, temp_suffix)
                     output_path = self.download_folder / filename
 
                     publication = pubs_map.get(str(fw.publication_name))
