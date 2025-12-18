@@ -41,6 +41,13 @@ function getPublicationDisplayName(pub) {
     return parsePublicationName(pub.name);
 }
 
+function parsePublicationDate(dateStr) { // dateStr in YYYYMMDD
+    const year = dateStr.slice(0, 4);
+    const month = dateStr.slice(4, 6);
+    const day = dateStr.slice(6, 8);
+    return `${day}/${month}/${year}`;
+}
+
 // Load publications
 async function loadPublications() {
     try {
@@ -208,7 +215,7 @@ async function loadWorkflow() {
             item.innerHTML = `
                 <div class="workflow-info">
                     <div class="workflow-name">${wf.publication_display_name}</div>
-                    <div class="workflow-date">${wf.date}</div>
+                    <div class="workflow-date">${parsePublicationDate(wf.date)}</div>
                 </div>
                 <div class="workflow-status">
                     ${statuses.join('')}
