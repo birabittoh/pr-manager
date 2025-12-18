@@ -4,7 +4,7 @@ import time
 import threading
 from datetime import datetime
 import ocrmypdf
-from modules.database import db, FileWorkflow
+from modules.database import db, Publication, FileWorkflow
 from modules.utils import split_filename, temp_suffix, get_key
 from modules import config
 
@@ -26,6 +26,7 @@ class OCRProcessorThread(threading.Thread):
             publication_name, date_str = split_filename(temp_file)
             output_filename = get_key(publication_name, date_str)
             output_path = self.ocr_folder / output_filename
+            ocr_language: str = "ita"
             
             # Check if already processed
             db.connect(reuse_if_open=True)
@@ -33,28 +34,38 @@ class OCRProcessorThread(threading.Thread):
                 FileWorkflow.publication_name == publication_name,
                 FileWorkflow.date == date_str
             )
-            db.close()
-            
-            if workflow and workflow.ocr_processed and output_path.exists():
-                logger.debug(f"File {output_filename} already processed")
-                temp_file.unlink(missing_ok=True)
-                return
 
-            if workflow and not workflow.downloaded:
-                logger.warning(f"File {temp_file.name} not marked as downloaded; skipping OCR processing.")
-                return
+            if workflow:
+                if workflow.ocr_processed and output_path.exists():
+                    logger.debug(f"File {output_filename} already processed")
+                    temp_file.unlink(missing_ok=True)
+                    return
+
+                if not workflow.downloaded:
+                    logger.warning(f"File {temp_file.name} not marked as downloaded; skipping OCR processing.")
+                    return
+
+                publication = Publication.get_or_none(Publication.name == publication_name)
+                if publication:
+                    ocr_language = str(publication.language)
+            
+            db.close()
             
             logger.info(f"Processing {temp_file.name} with OCR")
             
             # Run OCR
-            ocrmypdf.ocr(
+            exit_code = ocrmypdf.ocr(
                 temp_file,
                 output_path,
                 skip_text=True,
                 optimize=0,
                 quiet=True,
-                progress_bar=False
+                progress_bar=False,
+                language=ocr_language
             )
+            if exit_code != 0:
+                logger.error(f"OCR ({ocr_language}) processing failed for {temp_file.name} with exit code {exit_code}")
+                return
             
             # Update database
             if workflow:

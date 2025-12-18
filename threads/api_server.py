@@ -40,12 +40,14 @@ async def _delete_file_later(path: Path, delay: int = 300):
 
 class PublicationUpdate(BaseModel):
     enabled: bool | None = None
+    display_name: str | None = None
     issue_id: str | None = None
     max_scale: int | None = None
     language: str | None = None
 
 class PublicationCreate(BaseModel):
     name: str
+    display_name: str | None
     issue_id: str
     max_scale: int
     language: str
@@ -242,8 +244,7 @@ async def manual_download(request: ManualDownload):
 
 def start_api_server():
     """Start the FastAPI server"""
-    from modules import config
     host = config.API_HOST
     port = config.API_PORT
 
-    uvicorn.run(app, host=host, port=port, log_level="info")
+    uvicorn.run(app, host=host, port=port)
