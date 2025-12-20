@@ -16,6 +16,8 @@ from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
 
+DELETION_DELAY = 300
+
 app = FastAPI(title="PR Manager API")
 
 # Mount static files
@@ -205,20 +207,14 @@ async def get_downloaded_file(publication_name: str, date_str: str):
             status_code=404, 
             detail="File not found or not uploaded yet"
         )
-    
-    if workflow.channel_id is None or workflow.message_id is None:
-        raise HTTPException(
-            status_code=500,
-            detail="File metadata incomplete (missing channel_id or message_id)"
-        )
 
     # Generate filename
-    filename = get_key(publication_name, date_str) + ".pdf"
+    filename = get_key(publication_name, date_str)
     
     # Save file into DONE_FOLDER
     done_file = config.DONE_FOLDER / filename
     if done_file.exists():
-        logger.info(f"Serving existing file {done_file} from DONE_FOLDER")
+        logger.info(f"Serving existing file {done_file}")
         return FileResponse(
             path=str(done_file),
             filename=filename,
@@ -226,6 +222,11 @@ async def get_downloaded_file(publication_name: str, date_str: str):
         )
     
     try:
+        if workflow.channel_id is None or workflow.message_id is None:
+            raise HTTPException(
+                status_code=500,
+                detail="Workflow metadata incomplete (missing channel_id or message_id)"
+            )
         # Download file from Telegram into DONE_FOLDER
         logger.info(f"Downloading {filename} from Telegram (channel: {workflow.channel_id}, message: {workflow.message_id})")
         
@@ -237,7 +238,8 @@ async def get_downloaded_file(publication_name: str, date_str: str):
 
         if config.DELETE_AFTER_DONE:
             try:
-                asyncio.create_task(_delete_file_later(downloaded_path, 300))
+                asyncio.create_task(_delete_file_later(downloaded_path, DELETION_DELAY))
+                logger.info(f"Scheduled deletion for {downloaded_path} in {DELETION_DELAY} seconds")
             except Exception as e:
                 logger.error(f"Failed to schedule deletion for {downloaded_path}: {e}")
         
