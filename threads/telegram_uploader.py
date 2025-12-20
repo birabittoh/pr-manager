@@ -7,7 +7,7 @@ import asyncio
 
 from modules import config
 from modules.database import Publication, db, FileWorkflow
-from modules.utils import get_caption, split_filename
+from modules.utils import get_caption, split_filename, thumbnail_suffix
 from modules.telegram import get_telegram_credentials, create_telegram_client
 
 from telethon import TelegramClient
@@ -49,11 +49,18 @@ class TelegramUploaderThread(threading.Thread):
             logger.error(f"Failed to setup Telegram client: {e}")
             return False
 
-    async def async_upload(self, pdf_file, display_name: str):
+    async def async_upload(self, pdf_file: Path, display_name: str):
         if self.client is None:
             raise RuntimeError("Telegram client is not initialized")
 
         caption = get_caption(pdf_file, display_name)
+        thumbnail_path = pdf_file.with_suffix(thumbnail_suffix)
+        
+        _ = await self.client.send_file(
+            self.channel,
+            str(thumbnail_path),
+            silent=True,
+        )
 
         return await self.client.send_file(
             self.channel,
@@ -87,10 +94,18 @@ class TelegramUploaderThread(threading.Thread):
             display_name = publication.display_name if publication and publication.display_name else ""
             
             logger.info(f"Uploading {pdf_file.name} to Telegram")
-            result = self.loop.run_until_complete(self.async_upload(pdf_file, display_name))
+            result = self.loop.run_until_complete(self.async_upload(pdf_file, str(display_name)))
             
+            if not result.id:
+                logger.error(f"Failed to upload {pdf_file.name}: no message ID returned")
+                return
+
+            # Delete thumbnail
+            thumbnail_path = pdf_file.with_suffix(thumbnail_suffix)
+            thumbnail_path.unlink(missing_ok=True)
+
             # Update database
-            if workflow and result.id:
+            if workflow:
                 db.connect(reuse_if_open=True)
                 workflow.uploaded = True
                 workflow.channel_id = self.channel

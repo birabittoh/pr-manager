@@ -15,6 +15,7 @@ separator = " — "
 fw_separator = "_"
 pdf_suffix = ".pdf"
 temp_suffix = ".temp" + pdf_suffix
+thumbnail_suffix = ".jpg"
 
 def split_filename(filename: Path) -> tuple[str, str]:
     """Split filename into publication name and date string

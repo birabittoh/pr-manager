@@ -5,7 +5,7 @@ from datetime import datetime
 
 from modules.database import db, Publication, FileWorkflow
 from modules.download import get_page_keys, download_issue
-from modules.utils import pdf_suffix, temp_suffix, get_fw_key
+from modules.utils import pdf_suffix, temp_suffix, get_fw_key, thumbnail_suffix
 from modules import config
 
 import img2pdf
@@ -19,6 +19,7 @@ class DownloaderThread(threading.Thread):
     def __init__(self):
         super().__init__(daemon=True, name="DownloaderThread")
         self.download_folder = config.DOWNLOAD_FOLDER
+        self.ocr_folder = config.OCR_FOLDER
     
     def run(self):
         logger.info("Downloader thread running")
@@ -95,6 +96,11 @@ class DownloaderThread(threading.Thread):
                         pdf_bytes = img2pdf.convert(images)
                         with open(output_path, 'wb') as f:
                             f.write(pdf_bytes)
+
+                        # Also save thumbnail as jpg
+                        ocr_output_path = self.ocr_folder / (filename.replace(temp_suffix, thumbnail_suffix))
+                        with open(ocr_output_path, 'wb') as f:
+                            f.write(images[0])
 
                         logger.info(f"Successfully downloaded {filename}")
 
