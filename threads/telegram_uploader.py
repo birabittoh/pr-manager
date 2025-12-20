@@ -14,6 +14,8 @@ from telethon import TelegramClient
 
 logger = logging.getLogger(__name__)
 
+UPLOADER_DELAY = 30
+
 class TelegramUploaderThread(threading.Thread):
     def __init__(self):
         super().__init__()
@@ -128,9 +130,7 @@ class TelegramUploaderThread(threading.Thread):
                 for pdf_file in pdf_files:
                     self.upload_file(pdf_file)
                 
-                # Sleep for 30 seconds
-                time.sleep(30)
-                
             except Exception as e:
                 logger.error(f"Error in Telegram uploader thread: {e}")
-                time.sleep(30)
+
+            time.sleep(UPLOADER_DELAY)

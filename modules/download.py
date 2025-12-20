@@ -10,6 +10,14 @@ logger = logging.getLogger(__name__)
 
 ISSUE_NUMBER_FMT ="{issue_id}{issue_date}00000000001001"
 
+PRESSREADER_BASE_URL = "https://ingress.pressreader.com/services/"
+PRESSREADER_CDN_URL = "https://i.prcdn.co/img"
+
+GET_PAGE_KEYS_ENDPOINT = "IssueInfo/GetPageKeys"
+GET_ISSUE_INFO_ENDPOINT = "catalog/v2/publications/"
+
+RETRY_DELAY = 5
+
 def _format_issue_number(issue_id: str, issue_date: str) -> str:
     """Generate issue number from ID and date"""
     return ISSUE_NUMBER_FMT.format(issue_id=issue_id, issue_date=issue_date)
@@ -17,7 +25,7 @@ def _format_issue_number(issue_id: str, issue_date: str) -> str:
 
 def _download_image(issue_number: str, scale: int, page_number: int, key: str) -> bytes | None:
     """Download a single page image"""
-    url = "https://i.prcdn.co/img"
+    url = PRESSREADER_CDN_URL
     current_scale = scale
     retries = 0
     
@@ -26,7 +34,7 @@ def _download_image(issue_number: str, scale: int, page_number: int, key: str) -
             "file": issue_number,
             "page": page_number,
             "scale": str(current_scale),
-            "ticket": key
+            "ticket": key,
         }
         
         headers = {
@@ -51,7 +59,7 @@ def _download_image(issue_number: str, scale: int, page_number: int, key: str) -
                 if response.status_code == 500:
                     retries += 1
                     logger.warning(f"500 error for page {page_number}, retrying ({retries}/{config.MAX_RETRIES})...")
-                    time.sleep(5)
+                    time.sleep(RETRY_DELAY)
                     continue
                     
                 if response.status_code == 403:
@@ -79,9 +87,9 @@ def _download_image(issue_number: str, scale: int, page_number: int, key: str) -
     return None
 
 
-def get_page_keys(issue_id: str, issue_date: str) -> list[dict[str,str]] | None:
+def get_page_keys(issue_id: str, issue_date: str) -> tuple[list[dict[str,str]], int]:
     """Get page keys for an issue"""
-    url = "https://ingress.pressreader.com/services/IssueInfo/GetPageKeys"
+    url = PRESSREADER_BASE_URL + GET_PAGE_KEYS_ENDPOINT
     params = {
         "issue": _format_issue_number(issue_id, issue_date),
         "pageNumber": "0",
@@ -93,22 +101,22 @@ def get_page_keys(issue_id: str, issue_date: str) -> list[dict[str,str]] | None:
             
         if not response.ok:
             logger.error(f"Error in request: {response.status_code}")
-            return None
+            return [], response.status_code
             
         response_data = response.json()
         page_keys = response_data.get("PageKeys", [])
         if not page_keys:
             logger.warning("No pages reported by API.")
-            return None
-        return page_keys
+            return [], 500
+        return page_keys, 200
         
     except Exception as e:
         logger.error(f"Exception getting page keys: {e}")
-        return None
+        return [], 500
 
 def get_issue_info(issue_id: str) -> dict | None:
     """Get issue info for a publication"""
-    url = f"https://ingress.pressreader.com/services/catalog/v2/publications/{issue_id}"
+    url = PRESSREADER_BASE_URL + GET_ISSUE_INFO_ENDPOINT + issue_id
     params = {}
 
     try:

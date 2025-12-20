@@ -11,6 +11,8 @@ import schedule
 
 logger = logging.getLogger(__name__)
 
+SCHEDULER_DELAY = 1
+
 def find_new_issues(threshold_date: str):
     try:
         today = datetime.now().strftime(date_format)
@@ -60,7 +62,6 @@ def find_new_issues(threshold_date: str):
   
     except Exception as e:
         logger.error(f"Error in scheduler thread: {e}")
-        time.sleep(60)
 
 class SchedulerThread(threading.Thread):
     def __init__(self):
@@ -76,4 +77,4 @@ class SchedulerThread(threading.Thread):
 
         while True:
             schedule.run_pending()
-            time.sleep(1)
+            time.sleep(SCHEDULER_DELAY)

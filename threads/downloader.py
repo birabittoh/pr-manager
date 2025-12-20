@@ -12,6 +12,9 @@ import img2pdf
 
 logger = logging.getLogger(__name__)
 
+GET_PAGE_KEYS_DELAY = 1
+DOWNLOADER_DELAY = 30
+
 class DownloaderThread(threading.Thread):
     def __init__(self):
         super().__init__(daemon=True, name="DownloaderThread")
@@ -22,6 +25,7 @@ class DownloaderThread(threading.Thread):
 
         while True:
             try:
+
                 db.connect(reuse_if_open=True)
                 # Get FileWorkflows that are not yet downloaded
                 fws: list[FileWorkflow] = list(FileWorkflow.select().where((FileWorkflow.downloaded == False)))
@@ -42,11 +46,18 @@ class DownloaderThread(threading.Thread):
                         logger.error(f"Publication {fw.publication_name} not found in database; skipping.")
                         continue
 
+                    time.sleep(GET_PAGE_KEYS_DELAY)
                     logger.info(f"Fetching page keys for {fw_key}...")
-                    page_keys = get_page_keys(str(publication.issue_id), str(fw.date))
-                    if page_keys is not None:
+                    page_keys, status_code = get_page_keys(str(publication.issue_id), str(fw.date))
+                    if status_code == 404:
+                        # delete the FileWorkflow as the issue does not exist
+                        logger.error(f"Issue for {fw_key} not found (404). Deleting workflow.")
+                        db.connect(reuse_if_open=True)
+                        fw.delete_instance()
+                        db.close()
+                        continue
+                    if len(page_keys) >= 0:
                         keys_map[fw_key] = page_keys
-                    time.sleep(1)
                 
                 # Download each issue
                 for fw in fws:
@@ -97,8 +108,7 @@ class DownloaderThread(threading.Thread):
                     fw.save()
                     db.close()
                 
-                time.sleep(30)
-                
             except Exception as e:
                 logger.error(f"Error in downloader thread: {e}")
-                time.sleep(60)
+
+            time.sleep(DOWNLOADER_DELAY)

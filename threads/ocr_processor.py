@@ -14,6 +14,8 @@ warnings.filterwarnings("ignore")
 
 logger = logging.getLogger(__name__)
 
+OCR_PROCESSOR_DELAY = 30
+
 class OCRProcessorThread(threading.Thread):
     def __init__(self):
         super().__init__(daemon=True, name="OCRProcessorThread")
@@ -93,9 +95,7 @@ class OCRProcessorThread(threading.Thread):
                 for temp_file in temp_files:
                     self.process_file(temp_file)
                 
-                # Sleep for 30 seconds
-                time.sleep(30)
-                
             except Exception as e:
                 logger.error(f"Error in OCR processor thread: {e}")
-                time.sleep(30)
+
+            time.sleep(OCR_PROCESSOR_DELAY)
