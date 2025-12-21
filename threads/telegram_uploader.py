@@ -56,15 +56,18 @@ class TelegramUploaderThread(threading.Thread):
         caption = get_caption(pdf_file, display_name)
         thumbnail_path = pdf_file.with_suffix(thumbnail_suffix)
         
-        _ = await self.client.send_file(
-            self.channel,
-            str(thumbnail_path),
-            silent=True,
-        )
+        if thumbnail_path.exists():
+            _ = await self.client.send_file(
+                self.channel,
+                str(thumbnail_path),
+                silent=True,
+            )
+        else:
+            logger.warning(f"No thumbnail found for {pdf_file.name}")
 
         return await self.client.send_file(
             self.channel,
-            pdf_file.__str__(),
+            str(pdf_file),
             caption=caption
         )
     
