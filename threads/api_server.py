@@ -14,6 +14,8 @@ from fastapi.responses import FileResponse, HTMLResponse
 import uvicorn
 from pydantic import BaseModel
 
+from threads.scheduler import find_new_issues
+
 logger = logging.getLogger(__name__)
 
 DELETION_DELAY = 300
@@ -75,6 +77,12 @@ async def health():
         next_check_time = next_check_time.replace(day=now.day + 1)
     next_check_in_seconds = (next_check_time - now).total_seconds()
     return {"status": "ok", "timestamp": datetime.now().isoformat(), "next_check_in_seconds": next_check_in_seconds}
+
+@app.post("/api/check")
+async def force_check():
+    """Force an immediate check for new publications"""
+    response = find_new_issues(config.THRESHOLD_DATE)
+    return response
 
 @app.get("/api/publications")
 async def get_publications():

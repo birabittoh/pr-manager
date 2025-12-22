@@ -2,6 +2,7 @@ import logging
 import time
 import threading
 from datetime import datetime
+
 from modules.database import db, Publication, FileWorkflow
 from modules.download import get_issue_info
 from modules.utils import date_format
@@ -13,7 +14,9 @@ logger = logging.getLogger(__name__)
 
 SCHEDULER_DELAY = 1
 
-def find_new_issues(threshold_date: str):
+def find_new_issues(threshold_date: str) -> list[FileWorkflow]:
+    """Find new issues for all enabled publications and create FileWorkflow entries for them."""
+    created_workflows = []
     try:
         today = datetime.now().strftime(date_format)
 
@@ -58,10 +61,15 @@ def find_new_issues(threshold_date: str):
                 logger.debug(f"Issue for publication {pub.name} on {issue_date} already scheduled/downloaded")
                 continue
 
+            if created:
+                created_workflows.append(fw)
+            
             logger.info(f"Scheduling download for publication {pub.name} on {issue_date}")
   
     except Exception as e:
         logger.error(f"Error in scheduler thread: {e}")
+        
+    return created_workflows
 
 class SchedulerThread(threading.Thread):
     def __init__(self):

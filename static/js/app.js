@@ -3,6 +3,7 @@ let allWorkflows = [];
 let filteredWorkflows = [];
 let currentPage = 1;
 const workflowsPerPage = 20;
+const refreshInterval = 30000; // 30 seconds
 
 // Check health status
 async function checkHealth() {
@@ -30,6 +31,30 @@ async function checkHealth() {
     } catch (error) {
         document.getElementById('statusIndicator').className = 'status-indicator';
         document.getElementById('statusText').textContent = 'Offline';
+    }
+}
+
+async function forceCheck() {
+    if (!confirm('Are you sure you want to check for new issues right now?')) return;
+    try {
+        const response = await fetch('/api/check', { method: 'POST' });
+
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+
+        const data = await response.json();
+        // data is a list of created workflows. parse them into a message (show publication_name and issue_date)
+        if (data.length === 0) {
+            alert('No new issues found');
+        } else {
+            const createdList = data.map(wf => `- ${wf.publication_name} (${wf.date})`).join('\n');
+            alert(`Created ${data.length} new workflow(s):\n${createdList}`);
+        }
+
+
+
+    } catch (error) {
+        console.error('Error forcing check:', error);
+        alert('Error forcing check');
     }
 }
 
@@ -360,4 +385,4 @@ loadWorkflow();
 setInterval(() => {
     checkHealth();
     loadWorkflow(currentPage, document.getElementById('workflowSearch').value);
-}, 30000);
+}, refreshInterval);
