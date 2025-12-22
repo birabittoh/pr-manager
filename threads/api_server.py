@@ -2,6 +2,7 @@ import logging
 from datetime import datetime
 from pathlib import Path
 import asyncio
+import threading
 
 from modules.database import db, Publication, FileWorkflow
 from modules.utils import get_key
@@ -81,8 +82,8 @@ async def health():
 @app.post("/api/check")
 async def force_check():
     """Force an immediate check for new publications"""
-    response = find_new_issues(config.THRESHOLD_DATE)
-    return response
+    threading.Thread(target=find_new_issues, args=(config.THRESHOLD_DATE,), daemon=True).start()
+    return {"status": "check started"}
 
 @app.get("/api/publications")
 async def get_publications():

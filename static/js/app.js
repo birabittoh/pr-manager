@@ -42,16 +42,9 @@ async function forceCheck() {
         if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
 
         const data = await response.json();
-        // data is a list of created workflows. parse them into a message (show publication_name and issue_date)
-        if (data.length === 0) {
-            alert('No new issues found');
-        } else {
-            const createdList = data.map(wf => `- ${wf.publication_name} (${wf.date})`).join('\n');
-            alert(`Created ${data.length} new workflow(s):\n${createdList}`);
-        }
+        if (!data.status) throw new Error('Invalid response from server');
 
-
-
+        alert(data.status.charAt(0).toUpperCase() + data.status.slice(1));
     } catch (error) {
         console.error('Error forcing check:', error);
         alert('Error forcing check');
