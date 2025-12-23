@@ -33,6 +33,7 @@ DONE_FOLDER: Path = DATA_FOLDER / "done"
 DATABASE_PATH: Path = DATA_FOLDER / "pr.db"
 TELEGRAM_SESSION: Path = DATA_FOLDER / "telegram.session"
 JWT_TOKEN: Path = DATA_FOLDER / "jwt.token"
+LITE_JWT_TOKEN: Path = DATA_FOLDER / "lite_jwt.token"
 
 DATA_FOLDER.mkdir(parents=True, exist_ok=True)
 DOWNLOAD_FOLDER.mkdir(parents=True, exist_ok=True)

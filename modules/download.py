@@ -5,6 +5,7 @@ import requests
 
 from modules import config
 from modules.jwt import authorized_request
+from modules.jwt_quick import unauthorized_request
 
 logger = logging.getLogger(__name__)
 
@@ -121,7 +122,7 @@ def get_issue_info(issue_id: str) -> dict | None:
 
     try:
         logger.debug(f"Getting issue info for issue ID {issue_id}")
-        response = authorized_request(url, params)
+        response = unauthorized_request(url, params)
 
         if not response.ok:
             logger.error(f"Error in request: {response.status_code}")

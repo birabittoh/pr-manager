@@ -10,6 +10,8 @@ import requests
 
 from modules import config
 
+logger = logging.getLogger(__name__)
+
 # Constants
 HEADLESS = True
 
@@ -50,7 +52,7 @@ class Chromium(object):
             return instance_local
 
     def clean(self):
-        logging.debug("Quitting Chromium...")
+        logger.debug("Quitting Chromium...")
         if len(Chromium._instance) != 0:
             self.context.close()
             self.browser.close()
@@ -73,14 +75,14 @@ class Chromium(object):
     @staticmethod
     def __check_response_status(response: Response) -> tuple[bool, int]:
         if response.status != 200:
-            logging.debug(f"Found status {response.status} for {response.url}")
+            logger.debug(f"Found status {response.status} for {response.url}")
             return False, response.status
         return True, response.status
 
     @staticmethod
     def __check_only_one_instance_alive():
         if len(Chromium._instance) != 1:
-            logging.error("Weird behaviour, too many alive references...exiting...")
+            logger.error("Weird behaviour, too many alive references...exiting...")
             sys.exit("Weird behaviour, too many alive references...exiting...")
 
 
@@ -91,7 +93,7 @@ def _config_page(page: Page):
     page.set_default_timeout(config.CHROMIUM_TIMEOUT)
 
 def _perform_mlol_login(page: Page, username: str, password: str, chromium: Chromium):
-    logging.debug("Logging into MLOL...")
+    logger.debug("Logging into MLOL...")
     page.fill("input[name='lusername']", username, timeout=0)
     page.fill("input[name='lpassword']", password, timeout=0)
     page.click("input[type='submit']", timeout=0)
@@ -169,7 +171,7 @@ def _get_jwt_logic() -> tuple[str, datetime.datetime]:
     chromium.context.new_page()
 
     try:
-        logging.debug("Visiting MLOL...")
+        logger.debug("Visiting MLOL...")
         page = chromium.context.pages[0]
         chromium.visit_site(page, config.MLOL_WEBSITE)  # entrypoint
         _perform_mlol_login(page, config.MLOL_USERNAME, config.MLOL_PASSWORD, chromium)
@@ -186,7 +188,7 @@ def _get_jwt_logic() -> tuple[str, datetime.datetime]:
             sys.exit("JWT token not found!")
 
         expected_expiry = datetime.datetime.now() + datetime.timedelta(seconds=expires_in)
-        logging.info("JWT token captured successfully. Expires at %s", expected_expiry.isoformat())
+        logger.info("JWT token captured successfully. Expires at %s", expected_expiry.isoformat())
         return jwt_token, expected_expiry
 
     finally:
@@ -201,24 +203,24 @@ def get_jwt() -> str:
     
     with _jwt_lock:
         if _jwt_cache is not None:
-            logging.debug("Returning cached JWT")
+            logger.debug("Returning cached JWT")
             return _jwt_cache
         
         if _jwt_file.exists():
             with open(_jwt_file, "r") as f:
                 _jwt_cache = f.read().strip()
                 if _jwt_cache:
-                    logging.debug("Loaded JWT from cache file")
+                    logger.debug("Loaded JWT from cache file")
                     return _jwt_cache
         
-        logging.info("Retrieving new JWT...")
+        logger.info("Retrieving new JWT...")
         _jwt_cache, _ = _get_jwt_logic()
 
         # save to file
         with open(_jwt_file, "w") as f:
             f.write(_jwt_cache)
 
-        logging.info("JWT retrieved and cached successfully")
+        logger.info("JWT retrieved and cached successfully")
         return _jwt_cache
 
 def invalidate_jwt():
@@ -231,7 +233,7 @@ def invalidate_jwt():
         if _jwt_file.exists():
             _jwt_file.unlink()
 
-        logging.info("JWT cache invalidated")
+        logger.info("JWT cache invalidated")
 
 
 def authorized_request(url: str, params: dict[str,str]) -> requests.Response:
@@ -242,7 +244,7 @@ def authorized_request(url: str, params: dict[str,str]) -> requests.Response:
     }
     response = requests.get(url, headers=headers, params=params)
     if response.status_code == 401:
-        logging.info("JWT expired, obtaining a new one...")
+        logger.info("JWT expired, obtaining a new one...")
         invalidate_jwt()
         jwt = get_jwt()
         headers["Authorization"] = f"Bearer {jwt}"
