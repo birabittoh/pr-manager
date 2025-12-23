@@ -5,7 +5,7 @@ from datetime import datetime
 
 from modules.database import db, Publication, FileWorkflow
 from modules.download import get_issue_info
-from modules.utils import date_format
+from modules.utils import date_format, get_fw_date
 from modules import config
 
 import schedule
@@ -36,13 +36,12 @@ def find_new_issues(threshold_date: str) -> list[FileWorkflow]:
                 continue
 
             latest_issue = info.get("latestIssue", {})
-            issue_timestamp = latest_issue.get("issueDate", "")
-            if issue_timestamp == "":
-                logger.error(f"No issue date found for publication {pub.name}")
+            key: str = latest_issue.get("key", "")
+            if not key:
+                logger.debug(f"No latest issue found for publication {pub.name}")
                 continue
-
-            # issue_timestamp is in 2025-12-13T00:00:00Z format, convert to YYYYMMDD
-            issue_date = issue_timestamp.split("T")[0].replace("-", "")
+            
+            issue_date = get_fw_date(key)
             if issue_date < threshold_date:
                 logger.debug(f"Publication {pub.name}'s latest issue date {issue_date} is before threshold {threshold_date}")
                 continue
@@ -52,7 +51,7 @@ def find_new_issues(threshold_date: str) -> list[FileWorkflow]:
             # create an empty FileWorkflow if not exists
             fw, created = FileWorkflow.get_or_create(
                 publication_name=pub.name,
-                date=issue_date,
+                key=key,
                 defaults={"downloaded": False}
             )
             db.close()

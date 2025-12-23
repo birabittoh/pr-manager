@@ -6,11 +6,9 @@ import requests
 from modules import config
 from modules.jwt import authorized_request
 from modules.jwt_quick import unauthorized_request
+from modules.utils import get_fw_date
 
 logger = logging.getLogger(__name__)
-
-ISSUE_NUMBER_FMT ="{issue_id}{issue_date}000000{digits}001001"
-DIGITS = ["00", "52"]
 
 VALID_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:145.0) Gecko/20100101 Firefox/145.0"
 
@@ -21,11 +19,6 @@ GET_PAGE_KEYS_ENDPOINT = "IssueInfo/GetPageKeys"
 GET_ISSUE_INFO_ENDPOINT = "catalog/v2/publications/"
 
 RETRY_DELAY = 5
-
-def format_issue_number(issue_id: str, issue_date: str, digits: str = "00") -> str:
-    """Generate issue number from ID and date"""
-    return ISSUE_NUMBER_FMT.format(issue_id=issue_id, issue_date=issue_date, digits=digits)
-
 
 def _download_image(issue_number: str, scale: int, page_number: int, key: str) -> bytes | None:
     """Download a single page image"""
@@ -80,11 +73,11 @@ def _download_image(issue_number: str, scale: int, page_number: int, key: str) -
     return None
 
 
-def get_page_keys(issue_id: str, issue_date: str) -> tuple[list[dict[str,str]], int]:
+def get_page_keys(issue_key: str) -> tuple[list[dict[str,str]], int]:
     """Get page keys for an issue"""
     url = PRESSREADER_BASE_URL + GET_PAGE_KEYS_ENDPOINT
     params = {
-        "issue": format_issue_number(issue_id, issue_date),
+        "issue": issue_key,
         "pageNumber": "0",
         "preview": "false"
     }
@@ -126,14 +119,14 @@ def get_issue_info(issue_id: str) -> dict | None:
         return None
     #
 
-def download_issue(name: str, issue_number: str, issue_date: str, max_scale: int, page_keys: list[dict[str,str]]) -> list[bytes]:
+def download_issue(name: str, key: str, max_scale: int, page_keys: list[dict[str,str]]) -> list[bytes]:
     """Download all page images for a given issue.
 
     Args:
         name: Human-friendly publication name (used for logs only).
-        issue_id: PressReader issue ID string.
-        issue_date: Issue date in YYYYMMDD format.
+        key: Issue key from FileWorkflow.
         max_scale: Preferred scale (will step down on 403).
+        page_keys: List of page key dictionaries as returned by get_page_keys().
 
     Returns:
         List of bytes objects containing image bytes for each successfully downloaded page.
@@ -152,17 +145,17 @@ def download_issue(name: str, issue_number: str, issue_date: str, max_scale: int
 
     for index, page in enumerate(page_keys):
         page_number = int(page.get("PageNumber") or index + 1)
-        key = page.get("Key")
-        if key is None:
+        page_key = page.get("Key")
+        if page_key is None:
             logger.warning(f"Skipping page {page_number} with missing Key.")
             continue
 
-        img_bytes = _download_image(issue_number, max_scale, page_number, key)
+        img_bytes = _download_image(key, max_scale, page_number, page_key)
         if img_bytes:
             images.append(img_bytes)
         else:
             logger.warning(f"Failed to download page {page_number}.")
             return []
 
-    logger.info(f"Downloaded {len(images)}/{len(page_keys)} pages for {name} ({issue_date}).")
+    logger.info(f"Downloaded {len(images)}/{len(page_keys)} pages for {name} ({get_fw_date(key)}).")
     return images

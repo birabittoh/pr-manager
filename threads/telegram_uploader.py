@@ -80,7 +80,7 @@ class TelegramUploaderThread(threading.Thread):
             db.connect(reuse_if_open=True)
             workflow = FileWorkflow.get_or_none(
                 FileWorkflow.publication_name == publication_name,
-                FileWorkflow.date == date_str
+                FileWorkflow.key.contains(date_str)
             )
             publication = Publication.get_or_none(Publication.name == publication_name)
             db.close()

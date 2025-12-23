@@ -25,7 +25,7 @@ class Publication(BaseModel):
 
 class FileWorkflow(BaseModel):
     publication_name = CharField()
-    date = CharField()
+    key = CharField()
     downloaded = BooleanField(default=False)
     ocr_processed = BooleanField(default=False)
     uploaded = BooleanField(default=False)
@@ -36,7 +36,7 @@ class FileWorkflow(BaseModel):
     
     class Meta:
         indexes = (
-            (('publication_name', 'date'), True),
+            (('publication_name', 'key'), True),
         )
 
 def init_db():

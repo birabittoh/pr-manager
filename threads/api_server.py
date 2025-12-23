@@ -2,10 +2,9 @@ import logging
 from datetime import datetime
 from pathlib import Path
 import asyncio
-import threading
 
 from modules.database import db, Publication, FileWorkflow
-from modules.utils import get_key
+from modules.utils import get_key, guess_fw_key
 from modules.telegram import download_file_from_telegram
 from modules import config
 
@@ -178,7 +177,7 @@ async def get_workflow(
         search_lower = search.lower()
         query = query.where(
             (FileWorkflow.publication_name.contains(search_lower)) |
-            (FileWorkflow.date.contains(search))
+            (FileWorkflow.key.contains(search))
         )
     
     # Get total count
@@ -210,7 +209,7 @@ async def get_downloaded_file(publication_name: str, date_str: str):
     db.connect(reuse_if_open=True)
     workflow = FileWorkflow.get_or_none(
         FileWorkflow.publication_name == publication_name,
-        FileWorkflow.date == date_str,
+        FileWorkflow.key.contains(date_str),
         FileWorkflow.uploaded == True
     )
     db.close()
@@ -276,19 +275,24 @@ async def get_downloaded_file(publication_name: str, date_str: str):
 @app.post("/api/download")
 async def manual_download(request: ManualDownload):
     """Trigger manual download for specific dates"""
-    # This would need to communicate with the downloader thread
-    # For now, just create workflow entries
+    parsed_dates = []
+    for date_str in request.dates:
+        if not date_str.strip().replace("-", "").replace("/", "").isdigit():
+             raise HTTPException(status_code=400, detail=f"Invalid date format: {date_str}")
+
+        parsed_dates.append(date_str)
+
     db.connect(reuse_if_open=True)
-    
+
     pub = Publication.get_or_none(Publication.name == request.publication_name)
     if not pub:
         db.close()
         raise HTTPException(status_code=404, detail="Publication not found")
     
-    for date_str in request.dates:
+    for date_str in parsed_dates:
         FileWorkflow.get_or_create(
             publication_name=request.publication_name,
-            date=date_str,
+            key=guess_fw_key(str(pub.issue_id), date_str),
             defaults={'downloaded': False}
         )
     

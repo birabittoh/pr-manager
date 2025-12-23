@@ -68,8 +68,21 @@ def get_caption(file_path: Path, display_name: str) -> str:
     hashtag = _get_hashtag(title)
     return f"{title}\n\n{hashtag}"
 
+def get_fw_id(fw_key: str) -> str:
+    return fw_key[:4]
+
+def get_fw_date(fw_key: str) -> str:
+    return fw_key[4:12]
+
+def get_fw_ver(fw_key: str) -> int:
+    return int(fw_key[12:20])
+
+def guess_fw_key(issue_id: str, date_str: str) -> str:
+    return issue_id + date_str + "00000000001001"
+
 def get_fw_key(fw: FileWorkflow) -> str:
-    return get_key(str(fw.publication_name), str(fw.date))
+    date = get_fw_date(str(fw.key))
+    return get_key(str(fw.publication_name), date)
 
 def get_key(publication_name: str, date_str: str) -> str:
     return publication_name + fw_separator + date_str + pdf_suffix

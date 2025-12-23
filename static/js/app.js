@@ -52,7 +52,7 @@ async function forceCheck() {
         data.forEach(wf => {
             const pub = publications.find(p => p.name === wf.publication_name);
             const pubName = pub ? getPublicationDisplayName(pub) : parsePublicationName(wf.publication_name);
-            const pubDate = parsePublicationDate(wf.date);
+            const pubDate = parsePublicationDate(wf.key);
             message += `- ${pubName} (${pubDate})\n`;
         });
 
@@ -75,7 +75,12 @@ function getPublicationDisplayName(pub) {
     return parsePublicationName(pub.name);
 }
 
-function parsePublicationDate(dateStr) { // dateStr in YYYYMMDD
+function getDateFromKey(keyStr) {
+    return keyStr.slice(4, 12);
+}
+
+function parsePublicationDate(keyStr) { // dateStr in YYYYMMDD
+    const dateStr = getDateFromKey(keyStr);
     const year = dateStr.slice(0, 4);
     const month = dateStr.slice(4, 6);
     const day = dateStr.slice(6, 8);
@@ -100,6 +105,7 @@ async function loadPublications() {
     try {
         const response = await fetch('/api/publications');
         publications = await response.json();
+        publications.sort((a, b) => getPublicationDisplayName(a).localeCompare(getPublicationDisplayName(b)));
         
         const list = document.getElementById('publicationsList');
         const select = document.getElementById('manualPub');
@@ -345,13 +351,13 @@ function renderWorkflows(workflows) {
         if (wf.ocr_processed) statuses.push('<span class="status-badge completed">OCR</span>');
         else statuses.push('<span class="status-badge pending">No OCR</span>');
         
-        if (wf.uploaded) statuses.push(`<a href="/api/workflow/${wf.publication_name}/${wf.date}" target="_blank" class="download-btn"><span class="status-badge completed">Uploaded</span></a>`);
+        if (wf.uploaded) statuses.push(`<a href="/api/workflow/${wf.publication_name}/${getDateFromKey(wf.key)}" target="_blank" class="download-btn"><span class="status-badge completed">Uploaded</span></a>`);
         else statuses.push('<span class="status-badge pending">Not Uploaded</span>');
         
         item.innerHTML = `
             <div class="workflow-info">
                 <div class="workflow-name">${wf.publication_display_name}</div>
-                <div class="workflow-date">${parsePublicationDate(wf.date)}</div>
+                <div class="workflow-date">${parsePublicationDate(wf.key)}</div>
             </div>
             <div class="workflow-status">
                 ${statuses.join('')}

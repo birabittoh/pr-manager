@@ -4,8 +4,8 @@ import threading
 from datetime import datetime
 
 from modules.database import db, Publication, FileWorkflow
-from modules.download import DIGITS, format_issue_number, get_page_keys, download_issue
-from modules.utils import pdf_suffix, temp_suffix, get_fw_key, thumbnail_suffix
+from modules.download import get_page_keys, download_issue
+from modules.utils import get_fw_date, get_fw_id, pdf_suffix, temp_suffix, get_fw_key, thumbnail_suffix
 from modules import config
 
 import img2pdf
@@ -49,7 +49,7 @@ class DownloaderThread(threading.Thread):
 
                     time.sleep(GET_PAGE_KEYS_DELAY)
                     logger.info(f"Fetching page keys for {fw_key}...")
-                    page_keys, status_code = get_page_keys(str(publication.issue_id), str(fw.date))
+                    page_keys, status_code = get_page_keys(str(fw.key))
                     if status_code == 404:
                         # delete the FileWorkflow as the issue does not exist
                         logger.error(f"Issue for {fw_key} not found (404). Deleting workflow.")
@@ -64,7 +64,7 @@ class DownloaderThread(threading.Thread):
                 for fw in fws:
                     fw_key = get_fw_key(fw)
                     if fw_key not in keys_map:
-                        logger.error(f"Skipping download for {fw.publication_name} on {fw.date}: could not retrieve page keys")
+                        logger.error(f"Skipping download for {fw.publication_name} on {get_fw_date(str(fw.key))}: could not retrieve page keys")
                         continue
                     
                     filename = fw_key.replace(pdf_suffix, temp_suffix)
@@ -77,44 +77,36 @@ class DownloaderThread(threading.Thread):
 
                     page_keys = keys_map[fw_key]
 
-                    try:
-                        images: list[bytes] = []
+                    images: list[bytes] = []
 
-                        for digits in DIGITS:
-                            issue_number = format_issue_number(str(publication.issue_id), str(fw.date), digits)
-                            logger.info(f"Attempting download for {fw_key} with issue number {issue_number}...")
-                            images = download_issue(
-                                str(publication.name),
-                                issue_number,
-                                str(fw.date),
-                                int(publication.max_scale),
-                                page_keys,
-                            )
-                            if len(images) > 1:
-                                break  # successful download
-                            else:
-                                logger.warning(f"Download attempt for {fw_key} with issue number {issue_number} failed; trying next digits.")
+                    logger.info(f"Attempting download for {fw_key} with issue number {get_fw_id(str(fw.key))}...")
+                    images = download_issue(
+                        str(fw.publication_name),
+                        str(fw.key),
+                        int(publication.max_scale),
+                        page_keys,
+                    )
 
-                        # save all images as pdf
-                        if len(images) <= 1:
-                            logger.warning(f"Not enough images downloaded for {filename} ({len(images)}); skipping PDF creation.")
-                            return
+                    # save all images as pdf
+                    if len(images) <= 1:
+                        logger.warning(f"Not enough images downloaded for {filename} ({len(images)}); skipping PDF creation.")
+                        return
 
-                        logger.info(f"Saving as PDF...")
-                        pdf_bytes = img2pdf.convert(images)
-                        with open(output_path, 'wb') as f:
-                            f.write(pdf_bytes)
+                    logger.info(f"Saving as PDF...")
+                    pdf_bytes = img2pdf.convert(images)
+                    if pdf_bytes is None:
+                        logger.error(f"Failed to convert images to PDF for {filename}")
+                        return
+                    
+                    with open(output_path, 'wb') as f:
+                        _ = f.write(pdf_bytes)
 
-                        # Also save thumbnail as jpg
-                        ocr_output_path = self.ocr_folder / (filename.replace(temp_suffix, thumbnail_suffix))
-                        with open(ocr_output_path, 'wb') as f:
-                            f.write(images[0])
+                    # Also save thumbnail as jpg
+                    ocr_output_path = self.ocr_folder / (filename.replace(temp_suffix, thumbnail_suffix))
+                    with open(ocr_output_path, 'wb') as f:
+                        _ = f.write(images[0])
 
-                        logger.info(f"Successfully downloaded {filename}")
-
-                    except Exception as e:
-                        logger.error(f"Error downloading {filename}: {e}")
-                        continue
+                    logger.info(f"Successfully downloaded {filename}")
 
                     db.connect(reuse_if_open=True)
                     fw.downloaded = True
