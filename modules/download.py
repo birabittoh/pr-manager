@@ -9,7 +9,10 @@ from modules.jwt_quick import unauthorized_request
 
 logger = logging.getLogger(__name__)
 
-ISSUE_NUMBER_FMT ="{issue_id}{issue_date}00000000001001"
+ISSUE_NUMBER_FMT ="{issue_id}{issue_date}000000{digits}001001"
+DIGITS = ["00", "52"]
+
+VALID_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:145.0) Gecko/20100101 Firefox/145.0"
 
 PRESSREADER_BASE_URL = "https://ingress.pressreader.com/services/"
 PRESSREADER_CDN_URL = "https://i.prcdn.co/img"
@@ -19,9 +22,9 @@ GET_ISSUE_INFO_ENDPOINT = "catalog/v2/publications/"
 
 RETRY_DELAY = 5
 
-def _format_issue_number(issue_id: str, issue_date: str) -> str:
+def format_issue_number(issue_id: str, issue_date: str, digits: str = "00") -> str:
     """Generate issue number from ID and date"""
-    return ISSUE_NUMBER_FMT.format(issue_id=issue_id, issue_date=issue_date)
+    return ISSUE_NUMBER_FMT.format(issue_id=issue_id, issue_date=issue_date, digits=digits)
 
 
 def _download_image(issue_number: str, scale: int, page_number: int, key: str) -> bytes | None:
@@ -38,24 +41,12 @@ def _download_image(issue_number: str, scale: int, page_number: int, key: str) -
             "ticket": key,
         }
         
-        headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:145.0) Gecko/20100101 Firefox/145.0",
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-            "Accept-Language": "it-IT,it;q=0.8,en-US;q=0.5,en;q=0.3",
-            "Accept-Encoding": "gzip, deflate, br, zstd",
-            "Sec-GPC": "1",
-            "Connection": "keep-alive",
-            "Upgrade-Insecure-Requests": "1",
-            "Sec-Fetch-Dest": "document",
-            "Sec-Fetch-Mode": "navigate",
-            "Sec-Fetch-Site": "cross-site",
-            "Priority": "u=0, i",
-            "TE": "trailers"
-        }
+        headers = { "User-Agent": VALID_USER_AGENT }
         
         while retries < config.MAX_RETRIES:
             try:
-                response = requests.get(url, headers=headers, params=params)
+                logger.debug(f"GET {url}?{'&'.join(f'{k}={v}' for k,v in params.items())}")
+                response = requests.get(url, params=params, headers=headers)
                 
                 if response.status_code == 500:
                     retries += 1
@@ -64,6 +55,7 @@ def _download_image(issue_number: str, scale: int, page_number: int, key: str) -
                     continue
                     
                 if response.status_code == 403:
+                    
                     current_scale -= config.SCALE_STEP
                     logger.warning(f"403 error for page {page_number}, retrying with lower scale: {current_scale}")
                     retries = 0
@@ -92,7 +84,7 @@ def get_page_keys(issue_id: str, issue_date: str) -> tuple[list[dict[str,str]], 
     """Get page keys for an issue"""
     url = PRESSREADER_BASE_URL + GET_PAGE_KEYS_ENDPOINT
     params = {
-        "issue": _format_issue_number(issue_id, issue_date),
+        "issue": format_issue_number(issue_id, issue_date),
         "pageNumber": "0",
         "preview": "false"
     }
@@ -134,7 +126,7 @@ def get_issue_info(issue_id: str) -> dict | None:
         return None
     #
 
-def download_issue(name: str, issue_id: str, issue_date: str, max_scale: int, page_keys: list[dict[str,str]]) -> list[bytes]:
+def download_issue(name: str, issue_number: str, issue_date: str, max_scale: int, page_keys: list[dict[str,str]]) -> list[bytes]:
     """Download all page images for a given issue.
 
     Args:
@@ -147,7 +139,6 @@ def download_issue(name: str, issue_id: str, issue_date: str, max_scale: int, pa
         List of bytes objects containing image bytes for each successfully downloaded page.
     """
 
-    issue_number = _format_issue_number(issue_id, issue_date)
     images: list[bytes] = []
 
     l = len(page_keys)
@@ -160,7 +151,7 @@ def download_issue(name: str, issue_id: str, issue_date: str, max_scale: int, pa
     page_keys = sorted(page_keys, key=lambda x: x.get("PageNumber", 0))
 
     for index, page in enumerate(page_keys):
-        page_number = int(page.get("PageNumber") or index)
+        page_number = int(page.get("PageNumber") or index + 1)
         key = page.get("Key")
         if key is None:
             logger.warning(f"Skipping page {page_number} with missing Key.")
@@ -171,6 +162,7 @@ def download_issue(name: str, issue_id: str, issue_date: str, max_scale: int, pa
             images.append(img_bytes)
         else:
             logger.warning(f"Failed to download page {page_number}.")
+            return []
 
     logger.info(f"Downloaded {len(images)}/{len(page_keys)} pages for {name} ({issue_date}).")
     return images

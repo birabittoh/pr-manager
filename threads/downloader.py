@@ -4,7 +4,7 @@ import threading
 from datetime import datetime
 
 from modules.database import db, Publication, FileWorkflow
-from modules.download import get_page_keys, download_issue
+from modules.download import DIGITS, format_issue_number, get_page_keys, download_issue
 from modules.utils import pdf_suffix, temp_suffix, get_fw_key, thumbnail_suffix
 from modules import config
 
@@ -78,14 +78,22 @@ class DownloaderThread(threading.Thread):
                     page_keys = keys_map[fw_key]
 
                     try:
-                        logger.info(f"Downloading {filename}")
-                        images = download_issue(
-                            str(publication.name),
-                            str(publication.issue_id),
-                            str(fw.date),
-                            int(publication.max_scale),
-                            page_keys,
-                        )
+                        images: list[bytes] = []
+
+                        for digits in DIGITS:
+                            issue_number = format_issue_number(str(publication.issue_id), str(fw.date), digits)
+                            logger.info(f"Attempting download for {fw_key} with issue number {issue_number}...")
+                            images = download_issue(
+                                str(publication.name),
+                                issue_number,
+                                str(fw.date),
+                                int(publication.max_scale),
+                                page_keys,
+                            )
+                            if len(images) > 1:
+                                break  # successful download
+                            else:
+                                logger.warning(f"Download attempt for {fw_key} with issue number {issue_number} failed; trying next digits.")
 
                         # save all images as pdf
                         if len(images) <= 1:
