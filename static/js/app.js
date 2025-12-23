@@ -42,12 +42,24 @@ async function forceCheck() {
         if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
 
         const data = await response.json();
-        if (!data.status) throw new Error('Invalid response from server');
+        const count = Array.isArray(data) ? data.length : 0;
+        if (count === 0) {
+            alert('No new issues found.');
+            return;
+        }
 
-        alert(data.status.charAt(0).toUpperCase() + data.status.slice(1));
+        let message = `Found ${count} new issue${count > 1 ? 's' : ''}:\n\n`;
+        data.forEach(wf => {
+            const pub = publications.find(p => p.name === wf.publication_name);
+            const pubName = pub ? getPublicationDisplayName(pub) : parsePublicationName(wf.publication_name);
+            const pubDate = parsePublicationDate(wf.date);
+            message += `- ${pubName} (${pubDate})\n`;
+        });
+
+        alert(message);
     } catch (error) {
         console.error('Error forcing check:', error);
-        alert('Error forcing check');
+        alert('Error checking for new issues.');
     }
 }
 

@@ -16,6 +16,7 @@ import uvicorn
 from pydantic import BaseModel
 
 from threads.scheduler import find_new_issues
+from playhouse.shortcuts import model_to_dict
 
 logger = logging.getLogger(__name__)
 
@@ -82,8 +83,11 @@ async def health():
 @app.post("/api/check")
 async def force_check():
     """Force an immediate check for new publications"""
-    threading.Thread(target=find_new_issues, args=(config.THRESHOLD_DATE,), daemon=True).start()
-    return {"status": "check started"}
+    new_issues = find_new_issues(config.THRESHOLD_DATE)
+    try:
+        return [model_to_dict(item) for item in new_issues]
+    except Exception:
+        return new_issues
 
 @app.get("/api/publications")
 async def get_publications():
