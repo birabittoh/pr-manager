@@ -5,7 +5,7 @@ from datetime import datetime
 
 from modules.database import db, Publication, FileWorkflow
 from modules.download import get_page_keys, download_issue
-from modules.utils import get_fw_date, get_fw_id, pdf_suffix, temp_suffix, get_fw_key, thumbnail_suffix
+from modules.utils import get_fw_date, get_fw_id, pdf_suffix, temp_suffix, get_fw_filename, thumbnail_suffix
 from modules import config
 
 import img2pdf
@@ -26,7 +26,6 @@ class DownloaderThread(threading.Thread):
 
         while True:
             try:
-
                 db.connect(reuse_if_open=True)
                 # Get FileWorkflows that are not yet downloaded
                 fws: list[FileWorkflow] = list(FileWorkflow.select().where((FileWorkflow.downloaded == False)))
@@ -41,33 +40,33 @@ class DownloaderThread(threading.Thread):
                 # Get keys for each FileWorkflow first
                 keys_map: dict[str, list[dict[str,str]]] = {}
                 for fw in fws:
-                    fw_key = get_fw_key(fw)
+                    fw_filename = get_fw_filename(fw)
                     publication = pubs_map.get(str(fw.publication_name))
                     if publication is None:
                         logger.error(f"Publication {fw.publication_name} not found in database; skipping.")
                         continue
 
                     time.sleep(GET_PAGE_KEYS_DELAY)
-                    logger.info(f"Fetching page keys for {fw_key}...")
+                    logger.info(f"Fetching page keys for {fw_filename}...")
                     page_keys, status_code = get_page_keys(str(fw.key))
                     if status_code == 404:
                         # delete the FileWorkflow as the issue does not exist
-                        logger.error(f"Issue for {fw_key} not found (404). Deleting workflow.")
+                        logger.error(f"Issue for {fw_filename} not found (404). Deleting workflow.")
                         db.connect(reuse_if_open=True)
                         fw.delete_instance()
                         db.close()
                         continue
                     if len(page_keys) >= 0:
-                        keys_map[fw_key] = page_keys
+                        keys_map[fw_filename] = page_keys
                 
                 # Download each issue
                 for fw in fws:
-                    fw_key = get_fw_key(fw)
-                    if fw_key not in keys_map:
+                    fw_filename = get_fw_filename(fw)
+                    if fw_filename not in keys_map:
                         logger.error(f"Skipping download for {fw.publication_name} on {get_fw_date(str(fw.key))}: could not retrieve page keys")
                         continue
                     
-                    filename = fw_key.replace(pdf_suffix, temp_suffix)
+                    filename = fw_filename.replace(pdf_suffix, temp_suffix)
                     output_path = self.download_folder / filename
 
                     publication = pubs_map.get(str(fw.publication_name))
@@ -75,16 +74,20 @@ class DownloaderThread(threading.Thread):
                         logger.error(f"Publication {fw.publication_name} not found in database; skipping.")
                         continue
 
-                    page_keys = keys_map[fw_key]
+                    page_keys = keys_map[fw_filename]
 
                     images: list[bytes] = []
 
-                    logger.info(f"Attempting download for {fw_key} with issue number {get_fw_id(str(fw.key))}...")
+                    images_path = self.download_folder / str(fw.key)
+                    images_path.mkdir(parents=True, exist_ok=True)
+
+                    logger.info(f"Attempting download for {fw_filename} with issue number {get_fw_id(str(fw.key))}...")
                     images = download_issue(
                         str(fw.publication_name),
                         str(fw.key),
                         int(publication.max_scale),
                         page_keys,
+                        images_path
                     )
 
                     # save all images as pdf
@@ -105,6 +108,11 @@ class DownloaderThread(threading.Thread):
                     ocr_output_path = self.ocr_folder / (filename.replace(temp_suffix, thumbnail_suffix))
                     with open(ocr_output_path, 'wb') as f:
                         _ = f.write(images[0])
+
+                    # delete images from disk
+                    for img_file in images_path.glob("*.jpg"):
+                        img_file.unlink(missing_ok=True)
+                    images_path.rmdir()
 
                     logger.info(f"Successfully downloaded {filename}")
 

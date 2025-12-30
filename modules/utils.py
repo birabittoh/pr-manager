@@ -80,9 +80,9 @@ def get_fw_ver(fw_key: str) -> int:
 def guess_fw_key(issue_id: str, date_str: str) -> str:
     return issue_id + date_str + "00000000001001"
 
-def get_fw_key(fw: FileWorkflow) -> str:
+def get_fw_filename(fw: FileWorkflow) -> str:
     date = get_fw_date(str(fw.key))
-    return get_key(str(fw.publication_name), date)
+    return get_filename(str(fw.publication_name), date)
 
-def get_key(publication_name: str, date_str: str) -> str:
+def get_filename(publication_name: str, date_str: str) -> str:
     return publication_name + fw_separator + date_str + pdf_suffix

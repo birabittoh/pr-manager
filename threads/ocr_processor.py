@@ -5,7 +5,7 @@ import threading
 from datetime import datetime
 import ocrmypdf
 from modules.database import db, Publication, FileWorkflow
-from modules.utils import split_filename, temp_suffix, get_key
+from modules.utils import split_filename, temp_suffix, get_filename
 from modules import config
 
 import warnings
@@ -26,7 +26,7 @@ class OCRProcessorThread(threading.Thread):
         """Process a single temp PDF file with OCR"""
         try:
             publication_name, date_str = split_filename(temp_file)
-            output_filename = get_key(publication_name, date_str)
+            output_filename = get_filename(publication_name, date_str)
             output_path = self.ocr_folder / output_filename
             ocr_language: str = "ita"
             

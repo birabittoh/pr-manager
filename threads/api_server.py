@@ -4,7 +4,7 @@ from pathlib import Path
 import asyncio
 
 from modules.database import db, Publication, FileWorkflow
-from modules.utils import get_key, guess_fw_key
+from modules.utils import get_filename, guess_fw_key
 from modules.telegram import download_file_from_telegram
 from modules import config
 
@@ -221,7 +221,7 @@ async def get_downloaded_file(publication_name: str, date_str: str):
         )
 
     # Generate filename
-    filename = get_key(publication_name, date_str)
+    filename = get_filename(publication_name, date_str)
     
     # Save file into DONE_FOLDER
     done_file = config.DONE_FOLDER / filename
@@ -276,6 +276,7 @@ async def get_downloaded_file(publication_name: str, date_str: str):
 async def manual_download(request: ManualDownload):
     """Trigger manual download for specific dates"""
     parsed_dates = []
+    name = request.publication_name.lower()
     for date_str in request.dates:
         if not date_str.strip().replace("-", "").replace("/", "").isdigit():
              raise HTTPException(status_code=400, detail=f"Invalid date format: {date_str}")
@@ -284,14 +285,14 @@ async def manual_download(request: ManualDownload):
 
     db.connect(reuse_if_open=True)
 
-    pub = Publication.get_or_none(Publication.name == request.publication_name)
+    pub = Publication.get_or_none(Publication.name == name)
     if not pub:
         db.close()
         raise HTTPException(status_code=404, detail="Publication not found")
     
     for date_str in parsed_dates:
         FileWorkflow.get_or_create(
-            publication_name=request.publication_name,
+            publication_name=name,
             key=guess_fw_key(str(pub.issue_id), date_str),
             defaults={'downloaded': False}
         )

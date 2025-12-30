@@ -1,4 +1,5 @@
 import logging
+from pathlib import Path
 import time
 
 import requests
@@ -20,8 +21,13 @@ GET_ISSUE_INFO_ENDPOINT = "catalog/v2/publications/"
 
 RETRY_DELAY = 5
 
-def _download_image(issue_number: str, scale: int, page_number: int, key: str) -> bytes | None:
+def _download_image(issue_number: str, scale: int, page_number: int, key: str, image_path: Path) -> bytes | None:
     """Download a single page image"""
+    if image_path.exists():
+        logger.debug(f"Image for page {page_number} already exists at {image_path}, skipping download.")
+        with open(image_path, "rb") as f:
+            return f.read()
+
     url = PRESSREADER_CDN_URL
     current_scale = scale
     retries = 0
@@ -57,6 +63,9 @@ def _download_image(issue_number: str, scale: int, page_number: int, key: str) -
                 if not response.ok:
                     logger.error(f"Failed to download image for page {page_number}. Status code: {response.status_code}")
                     return None
+
+                with open(image_path, "wb") as f:
+                    f.write(response.content)
                     
                 logger.debug(f"Downloaded page {page_number}")
                 return response.content
@@ -119,7 +128,7 @@ def get_issue_info(issue_id: str) -> dict | None:
         return None
     #
 
-def download_issue(name: str, key: str, max_scale: int, page_keys: list[dict[str,str]]) -> list[bytes]:
+def download_issue(name: str, key: str, max_scale: int, page_keys: list[dict[str,str]], path: Path) -> list[bytes]:
     """Download all page images for a given issue.
 
     Args:
@@ -127,6 +136,7 @@ def download_issue(name: str, key: str, max_scale: int, page_keys: list[dict[str
         key: Issue key from FileWorkflow.
         max_scale: Preferred scale (will step down on 403).
         page_keys: List of page key dictionaries as returned by get_page_keys().
+        path: Path to save images to.
 
     Returns:
         List of bytes objects containing image bytes for each successfully downloaded page.
@@ -150,12 +160,13 @@ def download_issue(name: str, key: str, max_scale: int, page_keys: list[dict[str
             logger.warning(f"Skipping page {page_number} with missing Key.")
             continue
 
-        img_bytes = _download_image(key, max_scale, page_number, page_key)
+        image_path = path / f"{page_number}.jpg"
+        img_bytes = _download_image(key, max_scale, page_number, page_key, image_path)
         if img_bytes:
             images.append(img_bytes)
         else:
             logger.warning(f"Failed to download page {page_number}.")
             return []
 
-    logger.info(f"Downloaded {len(images)}/{len(page_keys)} pages for {name} ({get_fw_date(key)}).")
+    logger.info(f"Got {len(images)}/{len(page_keys)} pages for {name} ({get_fw_date(key)}).")
     return images
