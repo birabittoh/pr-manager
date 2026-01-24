@@ -93,13 +93,13 @@ class DownloaderThread(threading.Thread):
                     # save all images as pdf
                     if len(images) <= 1:
                         logger.warning(f"Not enough images downloaded for {filename} ({len(images)}); skipping PDF creation.")
-                        return
+                        continue
 
                     logger.info(f"Saving as PDF...")
                     pdf_bytes = img2pdf.convert(images)
                     if pdf_bytes is None:
                         logger.error(f"Failed to convert images to PDF for {filename}")
-                        return
+                        continue
                     
                     with open(output_path, 'wb') as f:
                         _ = f.write(pdf_bytes)
