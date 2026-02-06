@@ -75,6 +75,56 @@ function closeModal(modalId) {
     document.body.classList.remove('modal-active');
 }
 
+function showAlert(message, title = 'Notification') {
+    return new Promise(resolve => {
+        document.getElementById('dialog-title').textContent = title;
+        document.getElementById('dialog-message').textContent = message;
+        document.getElementById('dialog-cancel').classList.add('hidden');
+        document.getElementById('dialog-ok').textContent = 'OK';
+
+        const okBtn = document.getElementById('dialog-ok');
+        const newOkBtn = okBtn.cloneNode(true);
+        okBtn.parentNode.replaceChild(newOkBtn, okBtn);
+
+        newOkBtn.onclick = () => {
+            closeModal('modal-dialog');
+            resolve();
+        };
+
+        openModal('modal-dialog');
+    });
+}
+
+function showConfirm(message, title = 'Confirm') {
+    return new Promise(resolve => {
+        document.getElementById('dialog-title').textContent = title;
+        document.getElementById('dialog-message').textContent = message;
+        document.getElementById('dialog-cancel').classList.remove('hidden');
+        document.getElementById('dialog-ok').textContent = 'Confirm';
+
+        const okBtn = document.getElementById('dialog-ok');
+        const cancelBtn = document.getElementById('dialog-cancel');
+
+        const newOkBtn = okBtn.cloneNode(true);
+        okBtn.parentNode.replaceChild(newOkBtn, okBtn);
+
+        const newCancelBtn = cancelBtn.cloneNode(true);
+        cancelBtn.parentNode.replaceChild(newCancelBtn, cancelBtn);
+
+        newOkBtn.onclick = () => {
+            closeModal('modal-dialog');
+            resolve(true);
+        };
+
+        newCancelBtn.onclick = () => {
+            closeModal('modal-dialog');
+            resolve(false);
+        };
+
+        openModal('modal-dialog');
+    });
+}
+
 // API Calls
 async function checkHealth() {
     try {
@@ -153,16 +203,16 @@ async function loadThreads() {
 }
 
 async function forceCheck() {
-    if (!confirm('Are you sure you want to check for new issues right now?')) return;
+    if (!await showConfirm('Are you sure you want to check for new issues right now?')) return;
     try {
         const response = await fetch('/api/check', { method: 'POST' });
         if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
         const data = await response.json();
         const count = Array.isArray(data) ? data.length : 0;
-        alert(count === 0 ? 'No new issues found.' : `Found ${count} new issues. Refreshing...`);
+        await showAlert(count === 0 ? 'No new issues found.' : `Found ${count} new issues. Refreshing...`);
         loadWorkflow(1);
     } catch (error) {
-        alert('Error checking for new issues.');
+        await showAlert('Error checking for new issues.');
     }
 }
 
@@ -239,7 +289,7 @@ async function togglePublication(name, enabled) {
 }
 
 async function deletePublication(name) {
-    if (!confirm(`Are you sure you want to delete publication "${name}"?`)) return;
+    if (!await showConfirm(`Are you sure you want to delete publication "${name}"?`)) return;
     try {
         await fetch(`/api/publications/${name}`, { method: 'DELETE' });
         loadPublications();
@@ -284,7 +334,7 @@ async function addPublication(event) {
         loadPublications();
         event.target.reset();
     } catch (error) {
-        alert(error.message);
+        await showAlert(error.message);
     }
 }
 
@@ -306,7 +356,7 @@ async function updatePublication(event) {
         closeModal('modal-edit-publication');
         loadPublications();
     } catch (error) {
-        alert('Error updating publication');
+        await showAlert('Error updating publication');
     }
 }
 
@@ -334,7 +384,7 @@ async function manualDownload(event) {
         .filter(val => val !== '');
 
     if (dates.length === 0) {
-        alert('Please add at least one date');
+        await showAlert('Please add at least one date');
         return;
     }
 
@@ -344,18 +394,18 @@ async function manualDownload(event) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ publication_name, dates })
         });
-        alert(`Queued ${dates.length} downloads`);
+        await showAlert(`Queued ${dates.length} downloads`);
         closeModal('modal-manual-download');
         event.target.reset();
         document.getElementById('manualDatesContainer').innerHTML = '';
         loadWorkflow(1);
     } catch (error) {
-        alert('Error queuing downloads');
+        await showAlert('Error queuing downloads');
     }
 }
 
 async function deleteWorkflow(publication_name, key) {
-    if (!confirm(`Are you sure you want to delete this workflow record?`)) return;
+    if (!await showConfirm(`Are you sure you want to delete this workflow record?`)) return;
     try {
         const response = await fetch(`/api/workflow/${publication_name}/${key}`, {
             method: 'DELETE'
@@ -364,7 +414,7 @@ async function deleteWorkflow(publication_name, key) {
         loadWorkflow(currentPage, document.getElementById('workflowSearch').value);
     } catch (error) {
         console.error('Error deleting workflow:', error);
-        alert('Error deleting workflow');
+        await showAlert('Error deleting workflow');
     }
 }
 
