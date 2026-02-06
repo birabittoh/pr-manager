@@ -69,7 +69,7 @@ def main():
     
     # API server (runs in main thread)
     logger.info("Starting API server")
-    start_api_server()
+    start_api_server(threads=threads)
 
 if __name__ == "__main__":
     exit(main())

@@ -1,11 +1,59 @@
 let publications = [];
 let allWorkflows = [];
-let filteredWorkflows = [];
 let currentPage = 1;
 const workflowsPerPage = 20;
 const refreshInterval = 30000; // 30 seconds
 
-// Check health status
+// UI Management
+function showSection(sectionId) {
+    // Update navigation
+    const navItems = ['workflows', 'publications'];
+    navItems.forEach(item => {
+        const btn = document.getElementById(`nav-${item}`);
+        if (item === sectionId) {
+            btn.classList.add('bg-blue-600', 'text-white');
+            btn.classList.remove('text-slate-400', 'hover:bg-slate-800', 'hover:text-white');
+        } else {
+            btn.classList.remove('bg-blue-600', 'text-white');
+            btn.classList.add('text-slate-400', 'hover:bg-slate-800', 'hover:text-white');
+        }
+    });
+
+    // Update sections
+    document.getElementById('section-workflows').classList.add('hidden');
+    document.getElementById('section-publications').classList.add('hidden');
+    document.getElementById(`section-${sectionId}`).classList.remove('hidden');
+
+    // Update title
+    document.getElementById('section-title').textContent = sectionId.charAt(0).toUpperCase() + sectionId.slice(1);
+
+    if (sectionId === 'workflows') loadWorkflow(currentPage, document.getElementById('workflowSearch').value);
+    if (sectionId === 'publications') loadPublications();
+}
+
+function refreshCurrentSection() {
+    const isWorkflows = !document.getElementById('section-workflows').classList.contains('hidden');
+    if (isWorkflows) loadWorkflow(currentPage, document.getElementById('workflowSearch').value);
+    else loadPublications();
+
+    checkHealth();
+    loadThreads();
+}
+
+// Modal Management
+function openModal(modalId) {
+    const modal = document.getElementById(modalId);
+    modal.classList.remove('opacity-0', 'pointer-events-none');
+    document.body.classList.add('modal-active');
+}
+
+function closeModal(modalId) {
+    const modal = document.getElementById(modalId);
+    modal.classList.add('opacity-0', 'pointer-events-none');
+    document.body.classList.remove('modal-active');
+}
+
+// API Calls
 async function checkHealth() {
     try {
         const response = await fetch('/api/health');
@@ -13,8 +61,10 @@ async function checkHealth() {
 
         const online = data.status === 'ok';
         const serverTime = new Date(data.timestamp);
-        const serverTimeStr = serverTime.getHours().toString().padStart(2, '0') + ':' + serverTime.getMinutes().toString().padStart(2, '0')
-        document.getElementById('statusIndicator').className = 'status-indicator' + (online ? ' online' : '');
+        const serverTimeStr = serverTime.getHours().toString().padStart(2, '0') + ':' + serverTime.getMinutes().toString().padStart(2, '0');
+
+        const indicator = document.getElementById('server-status-indicator');
+        indicator.className = 'h-2 w-2 rounded-full mr-1.5 ' + (online ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]' : 'bg-red-500');
         
         const nextSecs = Math.max(0, Math.floor(Number(data.next_check_in_seconds) || 0));
         const fmtNext = (secs) => {
@@ -26,11 +76,57 @@ async function checkHealth() {
             return '<1m';
         };
 
-        const nextText = nextSecs ? ` — Next check in ${fmtNext(nextSecs)}` : '';
-        document.getElementById('statusText').textContent = (online ? `Online (${serverTimeStr})` : 'Warning') + nextText;
+        const nextText = nextSecs ? `Next check in ${fmtNext(nextSecs)}` : '';
+        document.getElementById('server-status-text').textContent = online ? `Online (${serverTimeStr})` : 'Offline';
+        document.getElementById('next-check-text').textContent = nextText;
     } catch (error) {
-        document.getElementById('statusIndicator').className = 'status-indicator';
-        document.getElementById('statusText').textContent = 'Offline';
+        document.getElementById('server-status-indicator').className = 'h-2 w-2 rounded-full bg-red-500 mr-1.5';
+        document.getElementById('server-status-text').textContent = 'Offline';
+    }
+}
+
+async function loadThreads() {
+    try {
+        const response = await fetch('/api/threads');
+        const threads = await response.json();
+
+        const threadList = document.getElementById('thread-list');
+        threadList.innerHTML = '';
+
+        threads.forEach(t => {
+            const item = document.createElement('div');
+            item.className = 'flex flex-col';
+
+            let statusColor = 'bg-slate-600';
+            let statusText = 'Stopped';
+            let pulseClass = '';
+
+            if (t.is_alive) {
+                if (t.status === 'running') {
+                    statusColor = 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.4)]';
+                    statusText = 'Running';
+                    pulseClass = 'animate-pulse';
+                } else {
+                    statusColor = 'bg-blue-500';
+                    statusText = 'Waiting';
+                }
+            }
+
+            const displayName = t.name.replace('Thread', '');
+
+            item.innerHTML = `
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-medium text-slate-300">${displayName}</span>
+                    <div class="flex items-center">
+                        <span class="h-1.5 w-1.5 rounded-full ${statusColor} ${pulseClass} mr-2"></span>
+                        <span class="text-[10px] text-slate-500 font-medium uppercase tracking-tight">${statusText}</span>
+                    </div>
+                </div>
+            `;
+            threadList.appendChild(item);
+        });
+    } catch (error) {
+        console.error('Error loading threads:', error);
     }
 }
 
@@ -38,69 +134,16 @@ async function forceCheck() {
     if (!confirm('Are you sure you want to check for new issues right now?')) return;
     try {
         const response = await fetch('/api/check', { method: 'POST' });
-
         if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-
         const data = await response.json();
         const count = Array.isArray(data) ? data.length : 0;
-        if (count === 0) {
-            alert('No new issues found.');
-            return;
-        }
-
-        let message = `Found ${count} new issue${count > 1 ? 's' : ''}:\n\n`;
-        data.forEach(wf => {
-            const pub = publications.find(p => p.name === wf.publication_name);
-            const pubName = pub ? getPublicationDisplayName(pub) : parsePublicationName(wf.publication_name);
-            const pubDate = parsePublicationDate(wf.key);
-            message += `- ${pubName} (${pubDate})\n`;
-        });
-
-        alert(message);
+        alert(count === 0 ? 'No new issues found.' : `Found ${count} new issues. Refreshing...`);
+        loadWorkflow(1);
     } catch (error) {
-        console.error('Error forcing check:', error);
         alert('Error checking for new issues.');
     }
 }
 
-function parsePublicationName(name) {
-    return name.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
-}
-
-function getPublicationDisplayName(pub) {
-    if (pub.display_name) {
-        return pub.display_name;
-    }
-
-    return parsePublicationName(pub.name);
-}
-
-function getDateFromKey(keyStr) {
-    return keyStr.slice(4, 12);
-}
-
-function parsePublicationDate(keyStr) { // dateStr in YYYYMMDD
-    const dateStr = getDateFromKey(keyStr);
-    const year = dateStr.slice(0, 4);
-    const month = dateStr.slice(4, 6);
-    const day = dateStr.slice(6, 8);
-    return `${day}/${month}/${year}`;
-}
-
-function getWorkflowKey(name, date) {
-    return `${name}_${date}`;
-}
-
-// Toggle panel collapse
-function togglePanel(panelId) {
-    const panel = document.getElementById(panelId);
-    const icon = document.getElementById(panelId + 'Icon');
-    
-    panel.classList.toggle('collapsed');
-    icon.classList.toggle('collapsed');
-}
-
-// Load publications
 async function loadPublications() {
     try {
         const response = await fetch('/api/publications');
@@ -114,31 +157,41 @@ async function loadPublications() {
         select.innerHTML = '<option value="">Select publication...</option>';
         
         publications.forEach(pub => {
-            // Add to list
             const displayName = getPublicationDisplayName(pub);
-            const item = document.createElement('div');
-            item.id = `pub_${pub.name}`;
-            item.className = 'publication-item';
-            item.innerHTML = `
-                <div class="publication-info">
-                    <div class="publication-name">${displayName}</div>
-                    <div class="publication-details">
-                        Name: ${pub.name} | Issue ID: ${pub.issue_id} | Max Scale: ${pub.max_scale} | Language: ${pub.language}
+            const card = document.createElement('div');
+            card.className = `bg-slate-900 border ${pub.enabled ? 'border-slate-800' : 'border-red-900/30 opacity-75'} rounded-xl p-5 hover:border-slate-700 transition-colors`;
+            card.innerHTML = `
+                <div class="flex justify-between items-start mb-4">
+                    <div>
+                        <h3 class="text-lg font-bold text-white">${displayName}</h3>
+                        <p class="text-xs text-slate-500 font-mono">${pub.name}</p>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" class="sr-only peer" ${pub.enabled ? 'checked' : ''} onchange="togglePublication('${pub.name}', this.checked)">
+                        <div class="w-9 h-5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
+                    </label>
+                </div>
+                <div class="space-y-2 mb-6">
+                    <div class="flex justify-between text-xs">
+                        <span class="text-slate-500">Issue ID</span>
+                        <span class="text-slate-300 font-medium">${pub.issue_id}</span>
+                    </div>
+                    <div class="flex justify-between text-xs">
+                        <span class="text-slate-500">Max Scale</span>
+                        <span class="text-slate-300 font-medium">${pub.max_scale}</span>
+                    </div>
+                    <div class="flex justify-between text-xs">
+                        <span class="text-slate-500">Language</span>
+                        <span class="text-slate-300 font-medium uppercase">${pub.language}</span>
                     </div>
                 </div>
-                <div class="publication-actions">
-                    <label class="toggle-switch">
-                        <input type="checkbox" ${pub.enabled ? 'checked' : ''} 
-                               onchange="togglePublication('${pub.name}', this.checked)">
-                        <span class="slider"></span>
-                    </label>
-                    <button class="btn-warning" onclick="showEditPublicationForm('${pub.name}')">Edit</button>
-                    <button class="btn-danger" onclick="deletePublication('${pub.name}')">Delete</button>
+                <div class="flex gap-2">
+                    <button onclick="showEditPublicationForm('${pub.name}')" class="flex-1 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-md text-xs font-medium transition-colors">Edit</button>
+                    <button onclick="deletePublication('${pub.name}')" class="px-3 py-1.5 bg-red-900/20 hover:bg-red-900/40 text-red-500 rounded-md text-xs font-medium transition-colors">Delete</button>
                 </div>
             `;
-            list.appendChild(item);
+            list.appendChild(card);
             
-            // Add to select
             const option = document.createElement('option');
             option.value = pub.name;
             option.textContent = displayName;
@@ -149,7 +202,6 @@ async function loadPublications() {
     }
 }
 
-// Toggle publication
 async function togglePublication(name, enabled) {
     try {
         await fetch(`/api/publications/${name}`, {
@@ -157,16 +209,15 @@ async function togglePublication(name, enabled) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ enabled })
         });
+        loadPublications();
     } catch (error) {
         console.error('Error toggling publication:', error);
         loadPublications();
     }
 }
 
-// Delete publication
 async function deletePublication(name) {
-    if (!confirm(`Delete publication "${name}"?`)) return;
-    
+    if (!confirm(`Are you sure you want to delete publication "${name}"?`)) return;
     try {
         await fetch(`/api/publications/${name}`, { method: 'DELETE' });
         loadPublications();
@@ -175,28 +226,7 @@ async function deletePublication(name) {
     }
 }
 
-// Show add publication form
-function showAddPublicationForm() {
-    hideEditPublicationForm(false);
-    const addPublicationForm = document.getElementById('addPublicationForm');
-    addPublicationForm.style.display = 'block';
-    addPublicationForm.scrollIntoView({ behavior: 'smooth' });
-}
-
-// Hide add publication form
-function hideAddPublicationForm() {
-    document.getElementById('addPublicationForm').style.display = 'none';
-    document.getElementById('newName').value = '';
-    document.getElementById('newDisplayName').value = '';
-    document.getElementById('newIssueId').value = '';
-    document.getElementById('newMaxScale').value = '357';
-    document.getElementById('newLanguage').value = 'ita';
-}
-
-// Show edit publication form
 function showEditPublicationForm(name) {
-    hideAddPublicationForm();
-    
     const pub = publications.find(p => p.name === name);
     if (!pub) return;
     
@@ -206,24 +236,11 @@ function showEditPublicationForm(name) {
     document.getElementById('editMaxScale').value = pub.max_scale;
     document.getElementById('editLanguage').value = pub.language;
     
-    const editPublicationForm = document.getElementById('editPublicationForm');
-    editPublicationForm.style.display = 'block';
-    editPublicationForm.scrollIntoView({ behavior: 'smooth' });
+    openModal('modal-edit-publication');
 }
 
-// Hide edit publication form
-function hideEditPublicationForm(scrollBack) {
-    document.getElementById('editPublicationForm').style.display = 'none';
-    if (scrollBack) {
-        const name = document.getElementById('editName').value;
-        document.getElementById(`pub_${name}`).scrollIntoView({ behavior: 'smooth' });
-    }
-}
-
-// Add publication
 async function addPublication(event) {
     event.preventDefault();
-    
     const data = {
         name: document.getElementById('newName').value,
         display_name: document.getElementById('newDisplayName').value || null,
@@ -231,25 +248,26 @@ async function addPublication(event) {
         max_scale: parseInt(document.getElementById('newMaxScale').value),
         language: document.getElementById('newLanguage').value
     };
-    
     try {
-        await fetch('/api/publications', {
+        const res = await fetch('/api/publications', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data)
         });
-        hideAddPublicationForm();
+        if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.detail || 'Failed to add publication');
+        }
+        closeModal('modal-add-publication');
         loadPublications();
+        event.target.reset();
     } catch (error) {
-        console.error('Error adding publication:', error);
-        alert('Error adding publication');
+        alert(error.message);
     }
 }
 
-// Update publication
 async function updatePublication(event) {
     event.preventDefault();
-    
     const name = document.getElementById('editName').value;
     const data = {
         display_name: document.getElementById('editDisplayName').value || null,
@@ -257,28 +275,23 @@ async function updatePublication(event) {
         max_scale: parseInt(document.getElementById('editMaxScale').value),
         language: document.getElementById('editLanguage').value
     };
-    
     try {
         await fetch(`/api/publications/${name}`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data)
         });
-        hideEditPublicationForm(true);
+        closeModal('modal-edit-publication');
         loadPublications();
     } catch (error) {
-        console.error('Error updating publication:', error);
         alert('Error updating publication');
     }
 }
 
-// Manual download
 async function manualDownload(event) {
     event.preventDefault();
-    
     const publication_name = document.getElementById('manualPub').value;
     const dates = document.getElementById('manualDates').value.split(',').map(d => d.trim());
-    
     try {
         await fetch('/api/download', {
             method: 'POST',
@@ -286,91 +299,94 @@ async function manualDownload(event) {
             body: JSON.stringify({ publication_name, dates })
         });
         alert(`Queued ${dates.length} downloads`);
-        document.getElementById('manualDates').value = '';
+        closeModal('modal-manual-download');
+        event.target.reset();
+        loadWorkflow(1);
     } catch (error) {
-        console.error('Error queuing downloads:', error);
         alert('Error queuing downloads');
     }
 }
 
-// Load workflow
 async function loadWorkflow(page = 1, search = '') {
     try {
-        const params = new URLSearchParams({
-            page: page,
-            limit: workflowsPerPage,
-            search: search
-        });
-        
+        const params = new URLSearchParams({ page, limit: workflowsPerPage, search });
         const response = await fetch(`/api/workflow?${params}`);
         const data = await response.json();
         
         allWorkflows = data.workflows;
-        const totalPages = data.total_pages;
         currentPage = page;
-        
         renderWorkflows(allWorkflows);
-        renderPagination(currentPage, totalPages);
+        renderPagination(currentPage, data.total_pages);
     } catch (error) {
         console.error('Error loading workflow:', error);
     }
 }
 
-// Search workflows
 function searchWorkflows() {
-    const search = document.getElementById('workflowSearch').value;
     currentPage = 1;
-    loadWorkflow(currentPage, search);
+    loadWorkflow(currentPage, document.getElementById('workflowSearch').value);
 }
 
-// Render workflows
 function renderWorkflows(workflows) {
     const list = document.getElementById('workflowList');
+    const noWorkflows = document.getElementById('no-workflows');
     list.innerHTML = '';
     
     if (workflows.length === 0) {
-        list.innerHTML = '<div style="text-align: center; color: #999; padding: 20px;">No workflows found</div>';
+        noWorkflows.classList.remove('hidden');
         return;
     }
+    noWorkflows.classList.add('hidden');
     
     workflows.forEach(wf => {
-        const item = document.createElement('div');
-        item.className = 'workflow-item';
-
-        pub = publications.find(p => p.name === wf.publication_name);
-        if (pub) {
-            wf.publication_display_name = getPublicationDisplayName(pub);
-        } else {
-            wf.publication_display_name = parsePublicationName(wf.publication_name);
-        }
+        const pub = publications.find(p => p.name === wf.publication_name);
+        const pubDisplayName = pub ? getPublicationDisplayName(pub) : parsePublicationName(wf.publication_name);
         
-        const statuses = [];
-        if (wf.downloaded) statuses.push('<span class="status-badge completed">Downloaded</span>');
-        else statuses.push('<span class="status-badge pending">Not Downloaded</span>');
+        const tr = document.createElement('tr');
+        tr.className = 'hover:bg-slate-800/30 transition-colors';
         
-        if (wf.ocr_processed) statuses.push('<span class="status-badge completed">OCR</span>');
-        else statuses.push('<span class="status-badge pending">No OCR</span>');
-        
-        if (wf.uploaded) statuses.push(`<a href="/api/workflow/${wf.publication_name}/${getDateFromKey(wf.key)}" target="_blank" class="download-btn"><span class="status-badge completed">Uploaded</span></a>`);
-        else statuses.push('<span class="status-badge pending">Not Uploaded</span>');
-        
-        item.innerHTML = `
-            <div class="workflow-info">
-                <div class="workflow-name">${wf.publication_display_name}</div>
-                <div class="workflow-date">${parsePublicationDate(wf.key)}</div>
-            </div>
-            <div class="workflow-status">
-                ${statuses.join('')}
+        const statusHtml = `
+            <div class="flex items-center justify-center space-x-2">
+                ${wf.downloaded ?
+                    '<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-green-900/30 text-green-500 border border-green-900/50">DOWNLOADED</span>' :
+                    '<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-800 text-slate-500 border border-slate-700">PENDING</span>'}
+                ${wf.ocr_processed ?
+                    '<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-900/30 text-blue-400 border border-blue-900/50">OCR</span>' :
+                    '<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-800 text-slate-500 border border-slate-700">NO OCR</span>'}
+                ${wf.uploaded ?
+                    '<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-900/30 text-purple-400 border border-purple-900/50">UPLOADED</span>' :
+                    '<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-800 text-slate-500 border border-slate-700">NOT UPLOADED</span>'}
             </div>
         `;
-        list.appendChild(item);
+
+        tr.innerHTML = `
+            <td class="px-6 py-4 whitespace-nowrap">
+                <div class="text-sm font-medium text-white">${pubDisplayName}</div>
+                <div class="text-xs text-slate-500 font-mono">${wf.publication_name}</div>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-400">
+                ${parsePublicationDate(wf.key)}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-center">
+                ${statusHtml}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                ${wf.uploaded ? `
+                    <a href="/api/workflow/${wf.publication_name}/${getDateFromKey(wf.key)}" target="_blank" class="text-blue-500 hover:text-blue-400 inline-flex items-center">
+                        <svg class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                        </svg>
+                        Download
+                    </a>
+                ` : '<span class="text-slate-600">—</span>'}
+            </td>
+        `;
+        list.appendChild(tr);
     });
 }
 
-// Render pagination
 function renderPagination(currentPage, totalPages) {
     const pagination = document.getElementById('workflowPagination');
-    
     if (totalPages <= 1) {
         pagination.innerHTML = '';
         return;
@@ -379,21 +395,62 @@ function renderPagination(currentPage, totalPages) {
     const search = document.getElementById('workflowSearch').value;
     
     pagination.innerHTML = `
-        <button onclick="loadWorkflow(1, '${search}')" ${currentPage === 1 ? 'disabled' : ''}>««</button>
-        <button onclick="loadWorkflow(${currentPage - 1}, '${search}')" ${currentPage === 1 ? 'disabled' : ''}>«</button>
-        <span class="page-info">Page ${currentPage} of ${totalPages}</span>
-        <button onclick="loadWorkflow(${currentPage + 1}, '${search}')" ${currentPage === totalPages ? 'disabled' : ''}>»</button>
-        <button onclick="loadWorkflow(${totalPages}, '${search}')" ${currentPage === totalPages ? 'disabled' : ''}>»»</button>
+        <div class="flex-1 flex justify-between sm:hidden">
+            <button onclick="loadWorkflow(${currentPage - 1}, '${search}')" ${currentPage === 1 ? 'disabled' : ''} class="relative inline-flex items-center px-4 py-2 border border-slate-700 text-sm font-medium rounded-md text-slate-400 bg-slate-800 hover:bg-slate-700 disabled:opacity-50">Previous</button>
+            <button onclick="loadWorkflow(${currentPage + 1}, '${search}')" ${currentPage === totalPages ? 'disabled' : ''} class="ml-3 relative inline-flex items-center px-4 py-2 border border-slate-700 text-sm font-medium rounded-md text-slate-400 bg-slate-800 hover:bg-slate-700 disabled:opacity-50">Next</button>
+        </div>
+        <div class="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+            <div>
+                <p class="text-sm text-slate-500">
+                    Page <span class="font-medium text-slate-300">${currentPage}</span> of <span class="font-medium text-slate-300">${totalPages}</span>
+                </p>
+            </div>
+            <div>
+                <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+                    <button onclick="loadWorkflow(1, '${search}')" ${currentPage === 1 ? 'disabled' : ''} class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-slate-700 bg-slate-800 text-sm font-medium text-slate-500 hover:bg-slate-700 disabled:opacity-50">«</button>
+                    <button onclick="loadWorkflow(${currentPage - 1}, '${search}')" ${currentPage === 1 ? 'disabled' : ''} class="relative inline-flex items-center px-4 py-2 border border-slate-700 bg-slate-800 text-sm font-medium text-slate-500 hover:bg-slate-700 disabled:opacity-50">Previous</button>
+                    <button onclick="loadWorkflow(${currentPage + 1}, '${search}')" ${currentPage === totalPages ? 'disabled' : ''} class="relative inline-flex items-center px-4 py-2 border border-slate-700 bg-slate-800 text-sm font-medium text-slate-500 hover:bg-slate-700 disabled:opacity-50">Next</button>
+                    <button onclick="loadWorkflow(${totalPages}, '${search}')" ${currentPage === totalPages ? 'disabled' : ''} class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-slate-700 bg-slate-800 text-sm font-medium text-slate-500 hover:bg-slate-700 disabled:opacity-50">»</button>
+                </nav>
+            </div>
+        </div>
     `;
 }
 
-// Initialize
-checkHealth();
-loadPublications();
-loadWorkflow();
+// Helpers
+function getPublicationDisplayName(pub) {
+    return pub.display_name || parsePublicationName(pub.name);
+}
 
-// Refresh every 30 seconds
-setInterval(() => {
+function parsePublicationName(name) {
+    return name.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+}
+
+function getDateFromKey(keyStr) {
+    return keyStr.slice(4, 12);
+}
+
+function parsePublicationDate(keyStr) {
+    const dateStr = getDateFromKey(keyStr);
+    const year = dateStr.slice(0, 4);
+    const month = dateStr.slice(4, 6);
+    const day = dateStr.slice(6, 8);
+    return `${day}/${month}/${year}`;
+}
+
+// Initialize
+async function init() {
+    await loadPublications();
     checkHealth();
-    loadWorkflow(currentPage, document.getElementById('workflowSearch').value);
-}, refreshInterval);
+    loadThreads();
+    loadWorkflow();
+
+    setInterval(() => {
+        checkHealth();
+        loadThreads();
+        const isWorkflows = !document.getElementById('section-workflows').classList.contains('hidden');
+        if (isWorkflows) loadWorkflow(currentPage, document.getElementById('workflowSearch').value);
+    }, refreshInterval);
+}
+
+init();

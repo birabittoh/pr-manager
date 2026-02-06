@@ -21,6 +21,7 @@ class OCRProcessorThread(threading.Thread):
         super().__init__(daemon=True, name="OCRProcessorThread")
         self.download_folder = config.DOWNLOAD_FOLDER
         self.ocr_folder = config.OCR_FOLDER
+        self.status = "waiting"
         
     def process_file(self, temp_file: Path):
         """Process a single temp PDF file with OCR"""
@@ -89,6 +90,7 @@ class OCRProcessorThread(threading.Thread):
         
         while True:
             try:
+                self.status = "running"
                 # Find all .temp.pdf files
                 temp_files = list(self.download_folder.glob("*" + temp_suffix))
                 
@@ -97,5 +99,7 @@ class OCRProcessorThread(threading.Thread):
                 
             except Exception as e:
                 logger.error(f"Error in OCR processor thread: {e}")
+            finally:
+                self.status = "waiting"
 
             time.sleep(OCR_PROCESSOR_DELAY)
