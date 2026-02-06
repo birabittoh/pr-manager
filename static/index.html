@@ -105,7 +105,7 @@
                         <svg class="mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                         </svg>
-                        Check Now
+                        Check
                     </button>
                     <button onclick="refreshCurrentSection()" class="p-1.5 border border-slate-700 rounded-md text-slate-400 bg-slate-800 hover:bg-slate-700">
                         <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -132,7 +132,7 @@
                             <svg class="mr-2 -ml-1 h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
                             </svg>
-                            Manual Download
+                            New
                         </button>
                     </div>
 
@@ -171,7 +171,7 @@
                             <svg class="mr-2 -ml-1 h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
                             </svg>
-                            Add Publication
+                            New
                         </button>
                     </div>
 
@@ -301,8 +301,16 @@
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-slate-400 mb-1">Dates</label>
-                    <input type="text" id="manualDates" required placeholder="YYYYmmdd, comma separated" class="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-md text-slate-200 focus:ring-blue-500 focus:border-blue-500 outline-none">
-                    <p class="text-[10px] text-slate-500 mt-1">Example: 20240101, 20240102</p>
+                    <div id="manualDatesContainer" class="space-y-2">
+                        <!-- Dynamic date inputs will be added here -->
+                    </div>
+                    <button type="button" onclick="addDateInput()" class="mt-2 inline-flex items-center text-xs text-blue-500 hover:text-blue-400">
+                        <svg class="mr-1 h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                        </svg>
+                        Add Date
+                    </button>
+                    <p class="text-[10px] text-slate-500 mt-1">Format: YYYYMMDD (e.g. 20240101)</p>
                 </div>
                 <div class="pt-4 flex justify-end space-x-3">
                     <button type="button" onclick="closeModal('modal-manual-download')" class="px-4 py-2 text-sm font-medium text-slate-400 hover:text-white">Cancel</button>
