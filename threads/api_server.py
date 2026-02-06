@@ -161,6 +161,22 @@ async def delete_publication(name: str):
     db.close()
     return {"status": "deleted"}
 
+@app.delete("/api/workflow/{publication_name}/{key}")
+async def delete_workflow(publication_name: str, key: str):
+    """Delete a workflow record"""
+    db.connect(reuse_if_open=True)
+    workflow = FileWorkflow.get_or_none(
+        FileWorkflow.publication_name == publication_name,
+        FileWorkflow.key == key
+    )
+    if not workflow:
+        db.close()
+        raise HTTPException(status_code=404, detail="Workflow not found")
+
+    workflow.delete_instance()
+    db.close()
+    return {"status": "deleted"}
+
 @app.get("/api/workflow")
 async def get_workflow(
     page: int = Query(1, ge=1),

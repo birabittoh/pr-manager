@@ -354,6 +354,20 @@ async function manualDownload(event) {
     }
 }
 
+async function deleteWorkflow(publication_name, key) {
+    if (!confirm(`Are you sure you want to delete this workflow record?`)) return;
+    try {
+        const response = await fetch(`/api/workflow/${publication_name}/${key}`, {
+            method: 'DELETE'
+        });
+        if (!response.ok) throw new Error('Failed to delete workflow');
+        loadWorkflow(currentPage, document.getElementById('workflowSearch').value);
+    } catch (error) {
+        console.error('Error deleting workflow:', error);
+        alert('Error deleting workflow');
+    }
+}
+
 async function loadWorkflow(page = 1, search = '') {
     try {
         const params = new URLSearchParams({ page, limit: workflowsPerPage, search });
@@ -418,14 +432,21 @@ function renderWorkflows(workflows) {
                 ${statusHtml}
             </td>
             <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                ${wf.uploaded ? `
-                    <a href="/api/workflow/${wf.publication_name}/${getDateFromKey(wf.key)}" target="_blank" class="text-blue-500 hover:text-blue-400 inline-flex items-center">
-                        <svg class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                <div class="flex items-center justify-end space-x-3">
+                    ${wf.uploaded ? `
+                        <a href="/api/workflow/${wf.publication_name}/${getDateFromKey(wf.key)}" target="_blank" class="text-blue-500 hover:text-blue-400 inline-flex items-center">
+                            <svg class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                            </svg>
+                            Download
+                        </a>
+                    ` : ''}
+                    <button onclick="deleteWorkflow('${wf.publication_name}', '${wf.key}')" class="text-slate-500 hover:text-red-500 transition-colors" title="Delete Workflow">
+                        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                         </svg>
-                        Download
-                    </a>
-                ` : '<span class="text-slate-600">—</span>'}
+                    </button>
+                </div>
             </td>
         `;
         list.appendChild(tr);
