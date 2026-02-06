@@ -22,6 +22,7 @@ logger = logging.getLogger(__name__)
 DELETION_DELAY = 300
 
 app = FastAPI(title="PR Manager API")
+_threads = []
 
 # Mount static files
 static_path = Path(__file__).parent.parent / "static"
@@ -272,6 +273,18 @@ async def get_downloaded_file(publication_name: str, date_str: str):
         logger.error(f"Unexpected error downloading file: {e}")
         raise HTTPException(status_code=500, detail="Failed to download file from Telegram")
 
+@app.get("/api/threads")
+async def get_threads():
+    """Get status of background threads"""
+    return [
+        {
+            "name": t.name,
+            "status": getattr(t, "status", "unknown"),
+            "is_alive": t.is_alive()
+        }
+        for t in _threads
+    ]
+
 @app.post("/api/download")
 async def manual_download(request: ManualDownload):
     """Trigger manual download for specific dates"""
@@ -300,8 +313,12 @@ async def manual_download(request: ManualDownload):
     db.close()
     return {"status": "queued", "count": len(request.dates)}
 
-def start_api_server():
+def start_api_server(threads=None):
     """Start the FastAPI server"""
+    global _threads
+    if threads:
+        _threads = threads
+
     host = config.API_HOST
     port = config.API_PORT
 

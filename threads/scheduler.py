@@ -73,11 +73,19 @@ def find_new_issues(threshold_date: str) -> list[FileWorkflow]:
 class SchedulerThread(threading.Thread):
     def __init__(self):
         super().__init__(daemon=True, name="SchedulerThread")
+        self.status = "waiting"
 
         threshold_date = config.THRESHOLD_DATE
         scheduler_time = config.SCHEDULER_TIME
 
-        schedule.every().day.at(scheduler_time).do(find_new_issues, threshold_date)
+        def job_wrapper():
+            self.status = "running"
+            try:
+                find_new_issues(threshold_date)
+            finally:
+                self.status = "waiting"
+
+        schedule.every().day.at(scheduler_time).do(job_wrapper)
     
     def run(self):
         logger.info("Scheduler thread running")

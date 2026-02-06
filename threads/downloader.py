@@ -20,12 +20,14 @@ class DownloaderThread(threading.Thread):
         super().__init__(daemon=True, name="DownloaderThread")
         self.download_folder = config.DOWNLOAD_FOLDER
         self.ocr_folder = config.OCR_FOLDER
+        self.status = "waiting"
     
     def run(self):
         logger.info("Downloader thread running")
 
         while True:
             try:
+                self.status = "running"
                 db.connect(reuse_if_open=True)
                 # Get FileWorkflows that are not yet downloaded
                 fws: list[FileWorkflow] = list(FileWorkflow.select().where((FileWorkflow.downloaded == False)))
@@ -124,5 +126,7 @@ class DownloaderThread(threading.Thread):
                 
             except Exception as e:
                 logger.error(f"Error in downloader thread: {e}")
+            finally:
+                self.status = "waiting"
 
             time.sleep(DOWNLOADER_DELAY)

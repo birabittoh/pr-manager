@@ -18,10 +18,11 @@ UPLOADER_DELAY = 30
 
 class TelegramUploaderThread(threading.Thread):
     def __init__(self):
-        super().__init__()
+        super().__init__(daemon=True, name="TelegramUploaderThread")
         self.ocr_folder = config.OCR_FOLDER
         self.done_folder = config.DONE_FOLDER
         self.delete_after_done = config.DELETE_AFTER_DONE
+        self.status = "waiting"
         
         self.api_id, self.api_hash, self.channel = get_telegram_credentials()
         self.client: TelegramClient | None = None
@@ -142,6 +143,7 @@ class TelegramUploaderThread(threading.Thread):
         
         while True:
             try:
+                self.status = "running"
                 # Find all PDF files (not .temp.pdf)
                 pdf_files = [f for f in self.ocr_folder.glob("*.pdf") if not f.name.endswith(".temp.pdf")]
                 
@@ -150,5 +152,7 @@ class TelegramUploaderThread(threading.Thread):
                 
             except Exception as e:
                 logger.error(f"Error in Telegram uploader thread: {e}")
+            finally:
+                self.status = "waiting"
 
             time.sleep(UPLOADER_DELAY)
