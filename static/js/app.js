@@ -5,6 +5,18 @@ const workflowsPerPage = 20;
 const refreshInterval = 30000; // 30 seconds
 
 // UI Management
+function toggleSidebar(show) {
+    const sidebar = document.getElementById('sidebar');
+    const overlay = document.getElementById('sidebar-overlay');
+    if (show) {
+        sidebar.classList.remove('-translate-x-full');
+        overlay.classList.remove('hidden');
+    } else {
+        sidebar.classList.add('-translate-x-full');
+        overlay.classList.add('hidden');
+    }
+}
+
 function showSection(sectionId) {
     // Update navigation
     const navItems = ['workflows', 'publications'];
@@ -29,6 +41,9 @@ function showSection(sectionId) {
 
     if (sectionId === 'workflows') loadWorkflow(currentPage, document.getElementById('workflowSearch').value);
     if (sectionId === 'publications') loadPublications();
+
+    // Close sidebar on mobile
+    if (window.innerWidth < 1024) toggleSidebar(false);
 }
 
 function refreshCurrentSection() {
