@@ -31,12 +31,22 @@
     </style>
 </head>
 <body class="h-full text-slate-200">
+    <!-- Mobile Sidebar Overlay -->
+    <div id="sidebar-overlay" onclick="toggleSidebar(false)" class="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-40 hidden lg:hidden"></div>
+
     <div class="flex h-full overflow-hidden">
         <!-- Sidebar -->
-        <aside class="w-64 bg-slate-900 border-r border-slate-800 flex flex-col">
-            <div class="p-6">
-                <h1 class="text-2xl font-bold text-blue-500">PR Manager</h1>
-                <p class="text-slate-500 text-xs mt-1">Multithreaded OCR Pipeline</p>
+        <aside id="sidebar" class="fixed inset-y-0 left-0 w-64 bg-slate-900 border-r border-slate-800 flex flex-col z-50 transform -translate-x-full transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0">
+            <div class="p-6 flex justify-between items-center">
+                <div>
+                    <h1 class="text-2xl font-bold text-blue-500">PR Manager</h1>
+                    <p class="text-slate-500 text-xs mt-1">Multithreaded OCR Pipeline</p>
+                </div>
+                <button onclick="toggleSidebar(false)" class="lg:hidden text-slate-500 hover:text-white">
+                    <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
             </div>
 
             <nav class="flex-1 px-4 space-y-1">
@@ -81,8 +91,15 @@
         <!-- Main Content -->
         <main class="flex-1 flex flex-col min-w-0 overflow-hidden">
             <!-- Header -->
-            <header class="bg-slate-900 border-b border-slate-800 px-8 py-4 flex items-center justify-between">
-                <h2 id="section-title" class="text-xl font-semibold text-white">Workflows</h2>
+            <header class="bg-slate-900 border-b border-slate-800 px-4 sm:px-8 py-4 flex items-center justify-between">
+                <div class="flex items-center">
+                    <button onclick="toggleSidebar(true)" class="mr-4 lg:hidden text-slate-400 hover:text-white">
+                        <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+                        </svg>
+                    </button>
+                    <h2 id="section-title" class="text-xl font-semibold text-white">Workflows</h2>
+                </div>
                 <div class="flex items-center space-x-3">
                     <button onclick="forceCheck()" class="inline-flex items-center px-3 py-1.5 border border-slate-700 rounded-md text-sm font-medium text-slate-300 bg-slate-800 hover:bg-slate-700">
                         <svg class="mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -99,7 +116,7 @@
             </header>
 
             <!-- Content Area -->
-            <div class="flex-1 overflow-y-auto p-8">
+            <div class="flex-1 overflow-y-auto p-4 sm:p-8">
                 <!-- Workflows Section -->
                 <section id="section-workflows" class="">
                     <div class="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -119,7 +136,7 @@
                         </button>
                     </div>
 
-                    <div class="bg-slate-900 border border-slate-800 rounded-lg overflow-hidden">
+                    <div class="bg-slate-900 border border-slate-800 rounded-lg overflow-hidden overflow-x-auto">
                         <table class="min-w-full divide-y divide-slate-800">
                             <thead class="bg-slate-800/50">
                                 <tr>
