@@ -1,0 +1,29 @@
+2026-02-06 20:38:35,444 - pikepdf._core - INFO - pikepdf C++ to Python logger bridge initialized
+2026-02-06 20:38:37,029 - telethon.crypto.aes - INFO - cryptg detected, it will be used for encryption
+2026-02-06 20:38:38,261 - __main__ - INFO - Starting PR Manager
+2026-02-06 20:38:38,262 - threads.scheduler - INFO - Scheduler thread running
+2026-02-06 20:38:38,263 - __main__ - INFO - Scheduler thread started
+2026-02-06 20:38:38,264 - threads.downloader - INFO - Downloader thread running
+2026-02-06 20:38:38,264 - __main__ - INFO - Downloader thread started
+2026-02-06 20:38:38,267 - threads.ocr_processor - INFO - OCR processor thread running
+2026-02-06 20:38:38,268 - __main__ - INFO - OCR processor thread started
+2026-02-06 20:38:38,272 - threads.telegram_uploader - INFO - Telegram uploader thread running
+2026-02-06 20:38:38,272 - __main__ - INFO - Telegram uploader thread started
+2026-02-06 20:38:38,272 - __main__ - INFO - Starting API server
+2026-02-06 20:38:38,276 - threads.telegram_uploader - ERROR - Failed to setup Telegram client: Telegram session file not found (data/telegram.session). Create it with telegram_login.py before starting the service.
+2026-02-06 20:38:38,276 - threads.telegram_uploader - ERROR - Failed to setup Telegram client: Telegram session file not found (data/telegram.session). Create it with telegram_login.py before starting the service.
+2026-02-06 20:38:38,276 - threads.telegram_uploader - ERROR - Failed to setup Telegram client, thread exiting
+INFO:     Started server process [9968]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+INFO:     127.0.0.1:54714 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54714 - "GET /static/js/app.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54714 - "GET /api/publications HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54714 - "GET /api/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54728 - "GET /api/threads HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54714 - "GET /api/workflow?page=1&limit=20&search= HTTP/1.1" 200 OK
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [9968]

@@ -315,7 +315,7 @@ function addDateInput(value = '') {
     const div = document.createElement('div');
     div.className = 'flex items-center space-x-2';
     div.innerHTML = `
-        <input type="text" name="manualDate" value="${value}" required placeholder="YYYYMMDD" class="flex-1 px-3 py-2 bg-slate-800 border border-slate-700 rounded-md text-slate-200 focus:ring-blue-500 focus:border-blue-500 outline-none">
+        <input type="date" name="manualDate" value="${value}" required class="flex-1 px-3 py-2 bg-slate-800 border border-slate-700 rounded-md text-slate-200 focus:ring-blue-500 focus:border-blue-500 outline-none [color-scheme:dark]">
         <button type="button" onclick="this.parentElement.remove()" class="text-slate-500 hover:text-red-500 p-1">
             <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
@@ -329,7 +329,9 @@ async function manualDownload(event) {
     event.preventDefault();
     const publication_name = document.getElementById('manualPub').value;
     const dateInputs = document.getElementsByName('manualDate');
-    const dates = Array.from(dateInputs).map(input => input.value.trim()).filter(val => val !== '');
+    const dates = Array.from(dateInputs)
+        .map(input => input.value.replace(/-/g, ''))
+        .filter(val => val !== '');
 
     if (dates.length === 0) {
         alert('Please add at least one date');
