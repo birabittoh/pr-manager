@@ -62,6 +62,12 @@
                     </svg>
                     Publications
                 </button>
+                <button onclick="showSection('logs')" id="nav-logs" class="w-full flex items-center px-4 py-2 text-sm font-medium rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white group">
+                    <svg class="mr-3 h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    Logs
+                </button>
             </nav>
 
             <!-- Thread Status Section -->
@@ -161,6 +167,13 @@
                     <!-- Pagination -->
                     <div id="workflowPagination" class="mt-4 flex items-center justify-between">
                         <!-- Pagination controls -->
+                    </div>
+                </section>
+
+                <!-- Logs Section -->
+                <section id="section-logs" class="hidden h-full">
+                    <div id="log-columns" class="flex gap-3 overflow-x-auto" style="height: calc(100vh - 120px);">
+                        <!-- columns injected by JS -->
                     </div>
                 </section>
 

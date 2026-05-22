@@ -135,24 +135,32 @@ class TelegramUploaderThread(threading.Thread):
     
     def run(self):
         logger.info("Telegram uploader thread running")
-        
-        # Setup client
-        if not self.setup_client():
-            logger.error("Failed to setup Telegram client, thread exiting")
-            return
-        
-        while True:
-            try:
-                self.status = "running"
-                # Find all PDF files (not .temp.pdf)
-                pdf_files = [f for f in self.ocr_folder.glob("*.pdf") if not f.name.endswith(".temp.pdf")]
-                
-                for pdf_file in pdf_files:
-                    self.upload_file(pdf_file)
-                
-            except Exception as e:
-                logger.error(f"Error in Telegram uploader thread: {e}")
-            finally:
-                self.status = "waiting"
 
-            time.sleep(UPLOADER_DELAY)
+        try:
+            while True:
+                try:
+                    # (Re-)connect client if not already connected
+                    if self.client is None:
+                        if not self.setup_client():
+                            logger.error("Failed to setup Telegram client, retrying after delay")
+                            time.sleep(UPLOADER_DELAY)
+                            continue
+
+                    self.status = "running"
+                    # Find all PDF files (not .temp.pdf)
+                    pdf_files = [f for f in self.ocr_folder.glob("*.pdf") if not f.name.endswith(".temp.pdf")]
+
+                    for pdf_file in pdf_files:
+                        self.upload_file(pdf_file)
+
+                except Exception as e:
+                    logger.error(f"Error in Telegram uploader thread: {e}")
+                finally:
+                    self.status = "waiting"
+
+                time.sleep(UPLOADER_DELAY)
+        finally:
+            try:
+                self.loop.close()
+            except Exception:
+                pass

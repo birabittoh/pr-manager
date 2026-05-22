@@ -1,16 +1,19 @@
 import logging
+import os
 from datetime import datetime
 from pathlib import Path
 import asyncio
+from typing import AsyncGenerator
 
 from modules.database import db, Publication, FileWorkflow
 from modules.utils import get_filename, guess_fw_key
 from modules.telegram import download_file_from_telegram
 from modules import config
+from modules.logging_setup import CATEGORIES
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse, StreamingResponse
 import uvicorn
 from pydantic import BaseModel
 
@@ -20,9 +23,10 @@ from playhouse.shortcuts import model_to_dict
 logger = logging.getLogger(__name__)
 
 DELETION_DELAY = 300
+LOG_TAIL_BYTES = 256 * 1024  # 256 KB
 
 app = FastAPI(title="PR Manager API")
-_threads = []
+_manager = None
 
 # Mount static files
 static_path = Path(__file__).parent.parent / "static"
@@ -292,14 +296,109 @@ async def get_downloaded_file(publication_name: str, date_str: str):
 @app.get("/api/threads")
 async def get_threads():
     """Get status of background threads"""
-    return [
-        {
-            "name": t.name,
-            "status": getattr(t, "status", "unknown"),
-            "is_alive": t.is_alive()
-        }
-        for t in _threads
-    ]
+    if _manager is None:
+        return []
+    return _manager.list()
+
+
+@app.post("/api/threads/{name}/start")
+async def start_thread(name: str):
+    """Restart a stopped thread by name"""
+    if _manager is None:
+        raise HTTPException(status_code=503, detail="Thread manager not available")
+    result = _manager.start(name)
+    if result["status"] == "not_found":
+        raise HTTPException(status_code=404, detail=f"Thread '{name}' not found")
+    return result
+
+
+@app.get("/api/logs")
+async def list_log_categories():
+    """List available log categories"""
+    return {"categories": CATEGORIES}
+
+
+@app.get("/api/logs/{category}")
+async def get_log(category: str, lines: int = Query(500, ge=1, le=2000)):
+    """Return the last N lines from a log file"""
+    if category not in CATEGORIES:
+        raise HTTPException(status_code=400, detail=f"Unknown log category: {category}")
+    log_path = config.LOG_FOLDER / f"{category}.log"
+    if not log_path.exists():
+        return {"category": category, "lines": []}
+    try:
+        with open(log_path, "rb") as f:
+            f.seek(0, 2)
+            size = f.tell()
+            read_size = min(size, LOG_TAIL_BYTES)
+            f.seek(-read_size, 2)
+            raw = f.read().decode("utf-8", errors="replace")
+        all_lines = raw.splitlines()
+        return {"category": category, "lines": all_lines[-lines:]}
+    except Exception as e:
+        logger.error(f"Error reading log {category}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to read log file")
+
+
+async def _sse_log_stream(category: str) -> AsyncGenerator[str, None]:
+    log_path = config.LOG_FOLDER / f"{category}.log"
+    last_ping = asyncio.get_event_loop().time()
+
+    # Wait for the file to exist
+    while not log_path.exists():
+        await asyncio.sleep(1)
+
+    f = open(log_path, "r", encoding="utf-8", errors="replace")
+    f.seek(0, 2)  # seek to end for live tail
+    last_inode = os.fstat(f.fileno()).st_ino
+    last_pos = f.tell()
+
+    try:
+        while True:
+            now = asyncio.get_event_loop().time()
+
+            # Detect log rotation (inode change or file shrunk)
+            try:
+                stat = os.stat(log_path)
+                current_size = stat.st_size
+                current_inode = stat.st_ino
+            except FileNotFoundError:
+                await asyncio.sleep(0.5)
+                continue
+
+            if current_inode != last_inode or current_size < last_pos:
+                f.close()
+                f = open(log_path, "r", encoding="utf-8", errors="replace")
+                last_inode = os.fstat(f.fileno()).st_ino
+                last_pos = 0
+
+            line = f.readline()
+            if line:
+                last_pos = f.tell()
+                yield f"data: {line.rstrip()}\n\n"
+            else:
+                # Keepalive ping every 15 seconds
+                if now - last_ping >= 15:
+                    yield ": ping\n\n"
+                    last_ping = now
+                await asyncio.sleep(0.5)
+    finally:
+        f.close()
+
+
+@app.get("/api/logs/{category}/stream")
+async def stream_log(category: str):
+    """Server-Sent Events stream of new log lines for a category"""
+    if category not in CATEGORIES:
+        raise HTTPException(status_code=400, detail=f"Unknown log category: {category}")
+    return StreamingResponse(
+        _sse_log_stream(category),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        },
+    )
 
 @app.post("/api/download")
 async def manual_download(request: ManualDownload):
@@ -329,11 +428,11 @@ async def manual_download(request: ManualDownload):
     db.close()
     return {"status": "queued", "count": len(request.dates)}
 
-def start_api_server(threads=None):
+def start_api_server(manager=None):
     """Start the FastAPI server"""
-    global _threads
-    if threads:
-        _threads = threads
+    global _manager
+    if manager is not None:
+        _manager = manager
 
     host = config.API_HOST
     port = config.API_PORT
