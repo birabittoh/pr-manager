@@ -51,12 +51,6 @@ function showSection(sectionId) {
         stopLogStreams();
     }
 
-    // Hide header action buttons on the Logs page
-    const headerActions = document.getElementById('header-actions');
-    if (headerActions) {
-        headerActions.classList.toggle('hidden', sectionId === 'logs');
-    }
-
     // Update sections
     document.getElementById('section-workflows').classList.add('hidden');
     document.getElementById('section-publications').classList.add('hidden');
