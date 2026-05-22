@@ -12,8 +12,7 @@ from modules import config
 
 logger = logging.getLogger(__name__)
 
-# Constants
-HEADLESS = True
+HEADLESS = config.HEADLESS
 
 _jwt_file = config.JWT_TOKEN
 _jwt_cache = None
@@ -94,9 +93,10 @@ def _config_page(page: Page):
 
 def _perform_mlol_login(page: Page, username: str, password: str, chromium: Chromium):
     logger.debug("Logging into MLOL...")
-    page.fill("input[name='lusername']", username, timeout=0)
-    page.fill("input[name='lpassword']", password, timeout=0)
-    page.click("input[type='submit']", timeout=0)
+    page.click("#mainmenu > div.nav-item.d-none.d-lg-flex.justify-content-end.align-items-center.col-4.gap-3 > button", timeout=0)
+    page.fill("input[name='Username']", username, timeout=0)
+    page.fill("input[name='Password']", password, timeout=0)
+    page.click("#loginFormBlock > button", timeout=0)
 
     # Failed login detection
     try:
@@ -109,44 +109,34 @@ def _perform_mlol_login(page: Page, username: str, password: str, chromium: Chro
 
 
 def _get_auth_info(page: Page, chromium: Chromium) -> dict:
-    # Clicking on catalogue
-    typologies_menu_entry = page.query_selector("#caricatip")
-    typologies_menu_entry.click()
+    logger.debug("Clicking Esplora button...")
+    page.click("#btnExplore", timeout=0)
 
-    newspapers_section = page.locator(":nth-match(:text('EDICOLA'), 1)")
-    newspapers_section.click()
+    logger.debug("Clicking Edicola section...")
+    newspapers_section = page.locator("#typology a[href='/search?idtype=600']")
+    newspapers_section.click(timeout=0)
 
-    # Focusing on Corriere della Sera
-    corriere_sera = page.locator("text=Corriere della Sera")
-    corriere_sera.nth(0).click()
+    logger.debug("Clicking Corriere della Sera...")
+    corriere_sera = page.locator("a[href='/media/details/550276273']").first
+    corriere_sera.click(timeout=0)
 
-    # Find the "SFOGLIA" <a> element and navigate directly to its href in the current tab
-    pressreader_link = page.locator(":nth-match(:text('SFOGLIA'), 1)")
+    logger.debug("Looking for Sfoglia online link...")
+    pressreader_link = page.locator("a[href='/Media/View/550276273']")
     href = pressreader_link.get_attribute("href")
     if not href:
+        logger.error("Sfoglia online link not found")
         return {}
 
-    base_url = page.url.rsplit("/", 1)[0]
-    href = f"{base_url}/{href}"
+    base_url = page.url.split("/media/")[0]
+    href = f"{base_url}{href}"
+    logger.debug("Navigating to PressReader: %s", href)
 
     try:
-        with page.expect_response(lambda r: "preload" in r.url) as resp_info:
+        with page.expect_response(lambda r: "authentication/v1/initialize" in r.url, timeout=30000) as resp_info:
             page.goto(href)
-        resp = resp_info.value
-        text = resp.text()
-
-        # handle JSONP response
-        if text.strip().startswith("loadCallback"):
-            start = text.find("(")
-            end = text.rfind(")")
-            payload = text[start + 1 : end]
-            response_json = json.loads(payload)
-        else:
-            response_json = resp.json()
-
-        return response_json.get("auth", {})
-
+        return resp_info.value.json()
     except TimeoutError:
+        logger.error("Timed out waiting for authentication/v1/initialize")
         return {}
 
 
@@ -178,17 +168,20 @@ def _get_jwt_logic() -> tuple[str, datetime.datetime]:
         _dismiss_mlol_modal(page)
         auth_info = _get_auth_info(page, chromium)
 
-        #token = auth_info.get("Token", None)
-        #user_key = auth_info.get("UserKey", None)
-        #use_geolocation = auth_info.get("UseGeoLocation", False)
-        jwt_token = auth_info.get("BearerToken", None)
-        expires_in = auth_info.get("ExpiresIn", 0)
+        jwt_token = auth_info.get("bearerToken", None)
 
         if not jwt_token:
             sys.exit("JWT token not found!")
 
-        expected_expiry = datetime.datetime.now() + datetime.timedelta(seconds=expires_in)
-        logger.info("JWT token captured successfully. Expires at %s", expected_expiry.isoformat())
+        # Decode exp claim from JWT payload (middle segment, base64url)
+        try:
+            payload_b64 = jwt_token.split(".")[1]
+            payload_b64 += "=" * (-len(payload_b64) % 4)  # pad
+            payload = json.loads(__import__("base64").urlsafe_b64decode(payload_b64))
+            expected_expiry = datetime.datetime.fromtimestamp(payload["exp"])
+        except Exception:
+            expected_expiry = datetime.datetime.now() + datetime.timedelta(hours=1)
+        logger.info("JWT token captured successfully. Expires at %s. Token: %s", expected_expiry.isoformat(), jwt_token)
         return jwt_token, expected_expiry
 
     finally:
