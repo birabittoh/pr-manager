@@ -24,6 +24,9 @@ def _get_bool(key: str, default: bool | None = None) -> bool | None:
 
 # Logging
 LOG_LEVEL: str = _get_str("LOG_LEVEL", "INFO")
+LOG_FOLDER: Path = Path("data") / "logs"
+LOG_MAX_BYTES: int = _get_int("LOG_MAX_BYTES", 5_000_000) or 5_000_000
+LOG_BACKUP_COUNT: int = _get_int("LOG_BACKUP_COUNT", 5) or 5
 
 # Folders (Path objects) — directories are created on import to preserve existing behavior
 DATA_FOLDER: Path = Path("data")
@@ -67,6 +70,9 @@ HEADLESS: bool = _get_bool("HEADLESS", True)
 
 __all__ = [
     "LOG_LEVEL",
+    "LOG_FOLDER",
+    "LOG_MAX_BYTES",
+    "LOG_BACKUP_COUNT",
     "DOWNLOAD_FOLDER",
     "OCR_FOLDER",
     "API_HOST",

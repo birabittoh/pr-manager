@@ -4,6 +4,18 @@ let currentPage = 1;
 const workflowsPerPage = 20;
 const refreshInterval = 30000; // 30 seconds
 
+const LOG_CATEGORIES = ['general', 'supervisor', 'scheduler', 'downloader', 'ocr_processor', 'telegram_uploader'];
+const LOG_CATEGORY_LABELS = {
+    general: 'General',
+    supervisor: 'Supervisor',
+    scheduler: 'Scheduler',
+    downloader: 'Downloader',
+    ocr_processor: 'OCRProcessor',
+    telegram_uploader: 'TelegramUploader',
+};
+let logStreams = {};
+let logCollapsed = new Set();
+
 // UI Management
 function toggleSidebar(show) {
     const sidebar = document.getElementById('sidebar');
@@ -19,9 +31,10 @@ function toggleSidebar(show) {
 
 function showSection(sectionId) {
     // Update navigation
-    const navItems = ['workflows', 'publications'];
+    const navItems = ['workflows', 'publications', 'logs'];
     navItems.forEach(item => {
         const btn = document.getElementById(`nav-${item}`);
+        if (!btn) return;
         if (item === sectionId) {
             btn.classList.add('bg-blue-600', 'text-white');
             btn.classList.remove('text-slate-400', 'hover:bg-slate-800', 'hover:text-white');
@@ -31,16 +44,24 @@ function showSection(sectionId) {
         }
     });
 
+    // Stop log streams when leaving the logs section
+    if (sectionId !== 'logs') {
+        stopLogStreams();
+    }
+
     // Update sections
     document.getElementById('section-workflows').classList.add('hidden');
     document.getElementById('section-publications').classList.add('hidden');
+    document.getElementById('section-logs').classList.add('hidden');
     document.getElementById(`section-${sectionId}`).classList.remove('hidden');
 
     // Update title
-    document.getElementById('section-title').textContent = sectionId.charAt(0).toUpperCase() + sectionId.slice(1);
+    const titles = { workflows: 'Workflows', publications: 'Publications', logs: 'Logs' };
+    document.getElementById('section-title').textContent = titles[sectionId] || sectionId.charAt(0).toUpperCase() + sectionId.slice(1);
 
     if (sectionId === 'workflows') loadWorkflow(currentPage, document.getElementById('workflowSearch').value);
     if (sectionId === 'publications') loadPublications();
+    if (sectionId === 'logs') loadLogs();
 
     // Close sidebar on mobile
     if (window.innerWidth < 1024) toggleSidebar(false);
@@ -172,6 +193,7 @@ async function loadThreads() {
             let statusColor = 'bg-slate-600';
             let statusText = 'Stopped';
             let pulseClass = '';
+            const isStopped = !t.is_alive;
 
             if (t.is_alive) {
                 if (t.status === 'running') {
@@ -185,13 +207,18 @@ async function loadThreads() {
             }
 
             const displayName = t.name.replace('Thread', '');
+            const isSupervisor = t.name === 'Supervisor';
+
+            const statusEl = (isStopped && !isSupervisor)
+                ? `<button onclick="startThread('${t.name}')" title="Click to restart" class="text-[10px] text-red-500 font-medium uppercase tracking-tight hover:text-red-400 hover:underline cursor-pointer">${statusText}</button>`
+                : `<span class="text-[10px] text-slate-500 font-medium uppercase tracking-tight">${statusText}</span>`;
 
             item.innerHTML = `
                 <div class="flex items-center justify-between">
                     <span class="text-xs font-medium text-slate-300">${displayName}</span>
                     <div class="flex items-center">
                         <span class="h-1.5 w-1.5 rounded-full ${statusColor} ${pulseClass} mr-2"></span>
-                        <span class="text-[10px] text-slate-500 font-medium uppercase tracking-tight">${statusText}</span>
+                        ${statusEl}
                     </div>
                 </div>
             `;
@@ -199,6 +226,15 @@ async function loadThreads() {
         });
     } catch (error) {
         console.error('Error loading threads:', error);
+    }
+}
+
+async function startThread(name) {
+    try {
+        await fetch(`/api/threads/${encodeURIComponent(name)}/start`, { method: 'POST' });
+        loadThreads();
+    } catch (error) {
+        console.error('Error starting thread:', error);
     }
 }
 
@@ -532,6 +568,128 @@ function renderPagination(currentPage, totalPages) {
             </div>
         </div>
     `;
+}
+
+// Log viewer
+function _logColorClass(line) {
+    if (/ ERROR /i.test(line)) return 'text-red-400';
+    if (/ WARNING /i.test(line)) return 'text-amber-400';
+    if (/ DEBUG /i.test(line)) return 'text-slate-500';
+    return 'text-slate-300';
+}
+
+function _appendLogLine(pre, line) {
+    const span = document.createElement('span');
+    span.className = _logColorClass(line) + ' block';
+    span.textContent = line;
+    pre.appendChild(span);
+
+    // Trim to 2000 lines
+    while (pre.children.length > 2000) {
+        pre.removeChild(pre.firstChild);
+    }
+
+    // Auto-scroll if user hasn't scrolled up
+    if (pre.scrollHeight - pre.scrollTop - pre.clientHeight < 40) {
+        pre.scrollTop = pre.scrollHeight;
+    }
+}
+
+function _buildLogColumn(category) {
+    const label = LOG_CATEGORY_LABELS[category] || category;
+    const collapsed = logCollapsed.has(category);
+
+    const col = document.createElement('div');
+    col.id = `log-col-${category}`;
+    col.dataset.category = category;
+
+    if (collapsed) {
+        col.className = 'flex-none w-10 bg-slate-900 border border-slate-800 rounded-lg flex flex-col items-center py-3 cursor-pointer select-none hover:border-slate-700 transition-colors';
+        col.onclick = () => toggleLogColumn(category);
+        col.innerHTML = `
+            <svg class="h-4 w-4 text-slate-500 mb-2 flex-none" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+            </svg>
+            <span class="text-[10px] font-semibold text-slate-500 uppercase tracking-wider" style="writing-mode:vertical-rl;text-orientation:mixed;">${label}</span>
+        `;
+    } else {
+        col.className = 'flex-1 min-w-0 bg-slate-900 border border-slate-800 rounded-lg flex flex-col overflow-hidden';
+        col.innerHTML = `
+            <div class="flex items-center justify-between px-3 py-2 border-b border-slate-800 flex-none">
+                <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">${label}</span>
+                <button onclick="toggleLogColumn('${category}')" title="Collapse" class="text-slate-600 hover:text-slate-400 transition-colors">
+                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                    </svg>
+                </button>
+            </div>
+            <pre id="log-pre-${category}" class="flex-1 overflow-y-auto text-xs font-mono p-2 whitespace-pre-wrap break-all leading-5"></pre>
+        `;
+    }
+    return col;
+}
+
+function toggleLogColumn(category) {
+    if (logCollapsed.has(category)) {
+        logCollapsed.delete(category);
+    } else {
+        logCollapsed.add(category);
+    }
+    // Persist
+    try { localStorage.setItem('logCollapsed', JSON.stringify([...logCollapsed])); } catch (_) {}
+
+    const container = document.getElementById('log-columns');
+    const existing = document.getElementById(`log-col-${category}`);
+    const newCol = _buildLogColumn(category);
+    container.replaceChild(newCol, existing);
+    // Re-populate backfill content from old pre (if expanding)
+    if (!logCollapsed.has(category)) {
+        // Content is already streamed — just let the SSE fill it; the stream stays open
+    }
+}
+
+function stopLogStreams() {
+    Object.values(logStreams).forEach(es => { try { es.close(); } catch (_) {} });
+    logStreams = {};
+}
+
+async function loadLogs() {
+    stopLogStreams();
+
+    // Restore collapsed state
+    try {
+        const saved = JSON.parse(localStorage.getItem('logCollapsed') || '[]');
+        logCollapsed = new Set(saved);
+    } catch (_) { logCollapsed = new Set(); }
+
+    const container = document.getElementById('log-columns');
+    container.innerHTML = '';
+
+    LOG_CATEGORIES.forEach(cat => {
+        container.appendChild(_buildLogColumn(cat));
+    });
+
+    // Backfill each category
+    await Promise.all(LOG_CATEGORIES.map(async cat => {
+        try {
+            const res = await fetch(`/api/logs/${cat}?lines=500`);
+            const data = await res.json();
+            const pre = document.getElementById(`log-pre-${cat}`);
+            if (!pre) return; // column is collapsed — backfill on expand
+            data.lines.forEach(line => _appendLogLine(pre, line));
+        } catch (_) {}
+    }));
+
+    // Open SSE streams for all categories (including collapsed — so expanding shows live content)
+    LOG_CATEGORIES.forEach(cat => {
+        const es = new EventSource(`/api/logs/${cat}/stream`);
+        es.onmessage = (event) => {
+            const pre = document.getElementById(`log-pre-${cat}`);
+            if (pre) _appendLogLine(pre, event.data);
+        };
+        es.onerror = () => {};
+        logStreams[cat] = es;
+    });
 }
 
 // Helpers
