@@ -15,6 +15,8 @@ const LOG_CATEGORY_LABELS = {
 };
 let logStreams = {};
 let logCollapsed = new Set();
+const logBuffers = {}; // category -> array of lines (in arrival order)
+const LOG_BUFFER_MAX = 2000;
 
 // UI Management
 function toggleSidebar(show) {
@@ -47,6 +49,12 @@ function showSection(sectionId) {
     // Stop log streams when leaving the logs section
     if (sectionId !== 'logs') {
         stopLogStreams();
+    }
+
+    // Hide header action buttons on the Logs page
+    const headerActions = document.getElementById('header-actions');
+    if (headerActions) {
+        headerActions.classList.toggle('hidden', sectionId === 'logs');
     }
 
     // Update sections
@@ -578,21 +586,40 @@ function _logColorClass(line) {
     return 'text-slate-300';
 }
 
-function _appendLogLine(pre, line) {
+function _renderLineSpan(line) {
     const span = document.createElement('span');
     span.className = _logColorClass(line) + ' block';
     span.textContent = line;
-    pre.appendChild(span);
+    return span;
+}
 
-    // Trim to 2000 lines
-    while (pre.children.length > 2000) {
+function _bufferPush(category, line) {
+    const buf = logBuffers[category] || (logBuffers[category] = []);
+    buf.push(line);
+    if (buf.length > LOG_BUFFER_MAX) {
+        buf.splice(0, buf.length - LOG_BUFFER_MAX);
+    }
+}
+
+function _appendLogLine(category, line) {
+    _bufferPush(category, line);
+    const pre = document.getElementById(`log-pre-${category}`);
+    if (!pre) return;
+    pre.appendChild(_renderLineSpan(line));
+    while (pre.children.length > LOG_BUFFER_MAX) {
         pre.removeChild(pre.firstChild);
     }
-
-    // Auto-scroll if user hasn't scrolled up
     if (pre.scrollHeight - pre.scrollTop - pre.clientHeight < 40) {
         pre.scrollTop = pre.scrollHeight;
     }
+}
+
+function _renderBufferInto(pre, category) {
+    const buf = logBuffers[category] || [];
+    const frag = document.createDocumentFragment();
+    buf.forEach(line => frag.appendChild(_renderLineSpan(line)));
+    pre.appendChild(frag);
+    pre.scrollTop = pre.scrollHeight;
 }
 
 function _buildLogColumn(category) {
@@ -615,16 +642,17 @@ function _buildLogColumn(category) {
     } else {
         col.className = 'flex-1 min-w-0 bg-slate-900 border border-slate-800 rounded-lg flex flex-col overflow-hidden';
         col.innerHTML = `
-            <div class="flex items-center justify-between px-3 py-2 border-b border-slate-800 flex-none">
+            <div onclick="toggleLogColumn('${category}')" title="Click to collapse" class="flex items-center justify-between px-3 py-2 border-b border-slate-800 flex-none cursor-pointer select-none hover:bg-slate-800/40 transition-colors">
                 <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">${label}</span>
-                <button onclick="toggleLogColumn('${category}')" title="Collapse" class="text-slate-600 hover:text-slate-400 transition-colors">
-                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
-                    </svg>
-                </button>
+                <svg class="h-4 w-4 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                </svg>
             </div>
             <pre id="log-pre-${category}" class="flex-1 overflow-y-auto text-xs font-mono p-2 whitespace-pre-wrap break-all leading-5"></pre>
         `;
+        // Populate from in-memory buffer so restored columns are not empty
+        const pre = col.querySelector(`#log-pre-${category}`);
+        _renderBufferInto(pre, category);
     }
     return col;
 }
@@ -635,17 +663,12 @@ function toggleLogColumn(category) {
     } else {
         logCollapsed.add(category);
     }
-    // Persist
     try { localStorage.setItem('logCollapsed', JSON.stringify([...logCollapsed])); } catch (_) {}
 
     const container = document.getElementById('log-columns');
     const existing = document.getElementById(`log-col-${category}`);
     const newCol = _buildLogColumn(category);
     container.replaceChild(newCol, existing);
-    // Re-populate backfill content from old pre (if expanding)
-    if (!logCollapsed.has(category)) {
-        // Content is already streamed — just let the SSE fill it; the stream stays open
-    }
 }
 
 function stopLogStreams() {
@@ -662,31 +685,29 @@ async function loadLogs() {
         logCollapsed = new Set(saved);
     } catch (_) { logCollapsed = new Set(); }
 
-    const container = document.getElementById('log-columns');
-    container.innerHTML = '';
+    // Reset in-memory buffers for a clean reload
+    LOG_CATEGORIES.forEach(cat => { logBuffers[cat] = []; });
 
-    LOG_CATEGORIES.forEach(cat => {
-        container.appendChild(_buildLogColumn(cat));
-    });
-
-    // Backfill each category
+    // Backfill buffers first (so columns render with content immediately, even when collapsed)
     await Promise.all(LOG_CATEGORIES.map(async cat => {
         try {
             const res = await fetch(`/api/logs/${cat}?lines=500`);
             const data = await res.json();
-            const pre = document.getElementById(`log-pre-${cat}`);
-            if (!pre) return; // column is collapsed — backfill on expand
-            data.lines.forEach(line => _appendLogLine(pre, line));
+            data.lines.forEach(line => _bufferPush(cat, line));
         } catch (_) {}
     }));
+
+    // Build columns (expanded ones populate from buffer in _buildLogColumn)
+    const container = document.getElementById('log-columns');
+    container.innerHTML = '';
+    LOG_CATEGORIES.forEach(cat => {
+        container.appendChild(_buildLogColumn(cat));
+    });
 
     // Open SSE streams for all categories (including collapsed — so expanding shows live content)
     LOG_CATEGORIES.forEach(cat => {
         const es = new EventSource(`/api/logs/${cat}/stream`);
-        es.onmessage = (event) => {
-            const pre = document.getElementById(`log-pre-${cat}`);
-            if (pre) _appendLogLine(pre, event.data);
-        };
+        es.onmessage = (event) => _appendLogLine(cat, event.data);
         es.onerror = () => {};
         logStreams[cat] = es;
     });
