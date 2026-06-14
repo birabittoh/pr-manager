@@ -78,6 +78,11 @@ HEADLESS: bool = _get_bool("HEADLESS", True)
 REQUEST_TIMEOUT: int = _get_int("REQUEST_TIMEOUT", 30) or 30
 HEARTBEAT_TIMEOUT: int = _get_int("HEARTBEAT_TIMEOUT", 600) or 600
 
+# JWT acquisition circuit breaker: after this many consecutive identical failures,
+# stop retrying for JWT_FAILURE_COOLDOWN seconds and notify the admin.
+JWT_MAX_FAILURES: int = _get_int("JWT_MAX_FAILURES", 3) or 3
+JWT_FAILURE_COOLDOWN: int = _get_int("JWT_FAILURE_COOLDOWN", 1800) or 1800
+
 __all__ = [
     "LOG_LEVEL",
     "LOG_FOLDER",
@@ -110,4 +115,6 @@ __all__ = [
     "HEADLESS",
     "REQUEST_TIMEOUT",
     "HEARTBEAT_TIMEOUT",
+    "JWT_MAX_FAILURES",
+    "JWT_FAILURE_COOLDOWN",
 ]

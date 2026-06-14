@@ -1,5 +1,6 @@
 import datetime
 import sys
+import time
 import weakref
 import logging
 import json
@@ -18,6 +19,22 @@ HEADLESS = config.HEADLESS
 _jwt_file = config.JWT_TOKEN
 _jwt_cache = None
 _jwt_lock = Lock()
+
+# Circuit breaker state for repeated JWT acquisition failures (guarded by _jwt_lock)
+_jwt_failures = 0
+_jwt_last_error_sig: str | None = None
+_jwt_circuit_until = 0.0
+
+
+def _error_signature(e: BaseException) -> str:
+    """Stable one-line fingerprint of an exception, ignoring variable detail.
+
+    Playwright errors carry a long, timing-dependent call log; we key only on the
+    exception type and its first message line so repeats of the *same* failure
+    collapse to one signature.
+    """
+    first_line = (str(e).splitlines() or [""])[0].strip()
+    return f"{type(e).__name__}: {first_line}".strip()
 
 
 class Chromium(object):
@@ -213,22 +230,59 @@ def get_jwt() -> str:
     Thread-safe JWT retrieval function.
     Caches the JWT to avoid multiple retrievals.
     """
-    global _jwt_cache
-    
+    global _jwt_cache, _jwt_failures, _jwt_last_error_sig, _jwt_circuit_until
+
     with _jwt_lock:
         if _jwt_cache is not None:
             logger.debug("Returning cached JWT")
             return _jwt_cache
-        
+
         if _jwt_file.exists():
             with open(_jwt_file, "r") as f:
                 _jwt_cache = f.read().strip()
                 if _jwt_cache:
                     logger.debug("Loaded JWT from cache file")
                     return _jwt_cache
-        
+
+        # Circuit breaker: after repeated identical failures, stop hammering MLOL
+        # and fail fast (without launching the browser) until the cooldown elapses.
+        now = time.monotonic()
+        if now < _jwt_circuit_until:
+            raise RuntimeError(
+                "JWT acquisition paused after repeated failures; retrying in "
+                f"{_jwt_circuit_until - now:.0f}s"
+            )
+
         logger.info("Retrieving new JWT...")
-        _jwt_cache, _ = _get_jwt_logic()
+        try:
+            _jwt_cache, _ = _get_jwt_logic()
+        except Exception as e:
+            sig = _error_signature(e)
+            if sig == _jwt_last_error_sig:
+                _jwt_failures += 1
+            else:
+                _jwt_last_error_sig = sig
+                _jwt_failures = 1
+            logger.error(
+                "JWT retrieval failed (%d consecutive with same error): %s",
+                _jwt_failures, sig,
+            )
+            if _jwt_failures >= config.JWT_MAX_FAILURES:
+                _jwt_circuit_until = time.monotonic() + config.JWT_FAILURE_COOLDOWN
+                notify_admin(
+                    f"JWT/login acquisition has failed {_jwt_failures} times in a row with "
+                    "the same error. This is unrecoverable automatically and needs manual "
+                    f"intervention (e.g. MLOL changed its flow, or an onboarding step is "
+                    f"blocking it). Retries are paused for {config.JWT_FAILURE_COOLDOWN}s.\n\n"
+                    f"Error: {sig}",
+                    dedupe_key=f"jwt-unrecoverable:{sig}",
+                )
+            raise
+
+        # Success: reset the failure tracking / circuit breaker.
+        _jwt_failures = 0
+        _jwt_last_error_sig = None
+        _jwt_circuit_until = 0.0
 
         # save to file
         with open(_jwt_file, "w") as f:
