@@ -4,6 +4,7 @@ import time
 from typing import Callable
 
 from modules import config
+from modules.notify import notify_admin
 
 logger = logging.getLogger(__name__)
 
@@ -11,6 +12,10 @@ SUPERVISOR_INTERVAL = 10
 BACKOFF_INITIAL = 10
 BACKOFF_MAX = 300
 FAILURE_WARN_THRESHOLD = 3
+# Stop restarting a thread after this many consecutive failures: at this point the
+# error is almost certainly unrecoverable (bad credentials, changed login flow, ...)
+# and blindly respawning only wastes resources and spams retries.
+FAILURE_GIVEUP_THRESHOLD = 10
 
 
 class ThreadManager:
@@ -21,6 +26,7 @@ class ThreadManager:
         self._backoff: dict[str, int] = {}
         self._failures: dict[str, int] = {}
         self._next_restart: dict[str, float] = {}
+        self._gaveup: set[str] = set()
         self._supervisor: threading.Thread | None = None
 
     def register(self, factory: Callable) -> None:
@@ -45,6 +51,11 @@ class ThreadManager:
             instance = self._instances.get(name)
             if instance is not None and instance.is_alive():
                 return {"status": "already_running"}
+            # A manual start re-enables a thread the supervisor had given up on.
+            self._gaveup.discard(name)
+            self._failures[name] = 0
+            self._backoff[name] = BACKOFF_INITIAL
+            self._next_restart[name] = 0.0
             self._spawn(name)
             return {"status": "started"}
 
@@ -71,7 +82,9 @@ class ThreadManager:
                 status = getattr(instance, "status", "unknown") if instance else "stopped"
                 age = self._heartbeat_age(instance)
                 is_alive = instance.is_alive() if instance else False
-                if is_alive and age is not None and age > config.HEARTBEAT_TIMEOUT:
+                if name in self._gaveup:
+                    status = "failed"
+                elif is_alive and age is not None and age > config.HEARTBEAT_TIMEOUT:
                     status = "stuck"
                 result.append({
                     "name": name,
@@ -103,17 +116,46 @@ class ThreadManager:
                                     f"{age:.0f}s (threshold {config.HEARTBEAT_TIMEOUT}s). "
                                     "It is alive but not making progress."
                                 )
+                                notify_admin(
+                                    f"Thread '{name}' appears stuck (no heartbeat for "
+                                    f"{age:.0f}s). It is alive but not making progress and may "
+                                    "need a service restart.",
+                                    dedupe_key=f"stuck:{name}",
+                                )
                             self._backoff[name] = BACKOFF_INITIAL
                             self._failures[name] = 0
+                            continue
+                        # Thread is dead. Stop retrying once we've given up on it.
+                        if name in self._gaveup:
                             continue
                         if now < self._next_restart[name]:
                             continue
                         self._failures[name] += 1
                         fail_count = self._failures[name]
+                        if fail_count >= FAILURE_GIVEUP_THRESHOLD:
+                            self._gaveup.add(name)
+                            logger.critical(
+                                f"Thread {name} has failed {fail_count} time(s); giving up "
+                                "and no longer restarting it. Manual intervention required."
+                            )
+                            notify_admin(
+                                f"Thread '{name}' failed {fail_count} times in a row and looks "
+                                "unrecoverable. The supervisor has stopped restarting it — manual "
+                                "intervention is required (fix the cause, then restart the thread "
+                                "or the service).",
+                                dedupe_key=f"gaveup:{name}",
+                            )
+                            continue
                         if fail_count >= FAILURE_WARN_THRESHOLD:
                             logger.error(
                                 f"Thread {name} has failed {fail_count} time(s) and keeps dying. "
                                 "Check logs for errors."
+                            )
+                            notify_admin(
+                                f"Thread '{name}' keeps crashing ({fail_count} failures) and "
+                                "is being restarted repeatedly. Check the logs — manual "
+                                "intervention is likely needed.",
+                                dedupe_key=f"dying:{name}",
                             )
                         else:
                             logger.warning(f"Thread {name} is dead, restarting (attempt {fail_count})")
