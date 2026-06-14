@@ -93,10 +93,10 @@ def _config_page(page: Page):
 
 def _perform_mlol_login(page: Page, username: str, password: str, chromium: Chromium):
     logger.debug("Logging into MLOL...")
-    page.click("#mainmenu > div.nav-item.d-none.d-lg-flex.justify-content-end.align-items-center.col-4.gap-3 > button", timeout=0)
-    page.fill("input[name='Username']", username, timeout=0)
-    page.fill("input[name='Password']", password, timeout=0)
-    page.click("#loginFormBlock > button", timeout=0)
+    page.click("#mainmenu > div.nav-item.d-none.d-lg-flex.justify-content-end.align-items-center.col-4.gap-3 > button", timeout=config.CHROMIUM_TIMEOUT)
+    page.fill("input[name='Username']", username, timeout=config.CHROMIUM_TIMEOUT)
+    page.fill("input[name='Password']", password, timeout=config.CHROMIUM_TIMEOUT)
+    page.click("#loginFormBlock > button", timeout=config.CHROMIUM_TIMEOUT)
 
     # Failed login detection
     try:
@@ -110,15 +110,15 @@ def _perform_mlol_login(page: Page, username: str, password: str, chromium: Chro
 
 def _get_auth_info(page: Page, chromium: Chromium) -> dict:
     logger.debug("Clicking Esplora button...")
-    page.click("#btnExplore", timeout=0)
+    page.click("#btnExplore", timeout=config.CHROMIUM_TIMEOUT)
 
     logger.debug("Clicking Edicola section...")
     newspapers_section = page.locator("#typology a[href='/search?idtype=600']")
-    newspapers_section.click(timeout=0)
+    newspapers_section.click(timeout=config.CHROMIUM_TIMEOUT)
 
     logger.debug("Clicking Corriere della Sera...")
     corriere_sera = page.locator("a[href='/media/details/550276273']").first
-    corriere_sera.click(timeout=0)
+    corriere_sera.click(timeout=config.CHROMIUM_TIMEOUT)
 
     logger.debug("Looking for Sfoglia online link...")
     pressreader_link = page.locator("a[href='/Media/View/550276273']")
@@ -235,13 +235,14 @@ def authorized_request(url: str, params: dict[str,str]) -> requests.Response:
     headers = {
         "Authorization": f"Bearer {jwt}",
     }
-    response = requests.get(url, headers=headers, params=params)
+    timeout = (config.REQUEST_TIMEOUT, config.REQUEST_TIMEOUT)
+    response = requests.get(url, headers=headers, params=params, timeout=timeout)
     if response.status_code == 401:
         logger.info("JWT expired, obtaining a new one...")
         invalidate_jwt()
         jwt = get_jwt()
         headers["Authorization"] = f"Bearer {jwt}"
-        response = requests.get(url, headers=headers, params=params)
+        response = requests.get(url, headers=headers, params=params, timeout=timeout)
     return response
 
 

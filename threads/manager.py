@@ -3,6 +3,8 @@ import threading
 import time
 from typing import Callable
 
+from modules import config
+
 logger = logging.getLogger(__name__)
 
 SUPERVISOR_INTERVAL = 10
@@ -54,20 +56,35 @@ class ThreadManager:
         self._instances[name] = instance
         logger.warning(f"Thread {name} spawned (restart #{self._failures[name]})")
 
+    @staticmethod
+    def _heartbeat_age(instance: threading.Thread | None) -> float | None:
+        """Seconds since the thread last reported a heartbeat, or None if unsupported."""
+        last = getattr(instance, "last_heartbeat", None)
+        if last is None:
+            return None
+        return time.monotonic() - last
+
     def list(self) -> list[dict]:
         result = []
         with self._lock:
             for name, instance in self._instances.items():
+                status = getattr(instance, "status", "unknown") if instance else "stopped"
+                age = self._heartbeat_age(instance)
+                is_alive = instance.is_alive() if instance else False
+                if is_alive and age is not None and age > config.HEARTBEAT_TIMEOUT:
+                    status = "stuck"
                 result.append({
                     "name": name,
-                    "status": getattr(instance, "status", "unknown") if instance else "stopped",
-                    "is_alive": instance.is_alive() if instance else False,
+                    "status": status,
+                    "is_alive": is_alive,
+                    "heartbeat_age": round(age, 1) if age is not None else None,
                 })
             if self._supervisor:
                 result.append({
                     "name": "Supervisor",
                     "status": "running" if self._supervisor.is_alive() else "stopped",
                     "is_alive": self._supervisor.is_alive(),
+                    "heartbeat_age": None,
                 })
         return result
 
@@ -79,6 +96,13 @@ class ThreadManager:
                 with self._lock:
                     for name, instance in self._instances.items():
                         if instance is not None and instance.is_alive():
+                            age = self._heartbeat_age(instance)
+                            if age is not None and age > config.HEARTBEAT_TIMEOUT:
+                                logger.error(
+                                    f"Thread {name} appears stuck: no heartbeat for "
+                                    f"{age:.0f}s (threshold {config.HEARTBEAT_TIMEOUT}s). "
+                                    "It is alive but not making progress."
+                                )
                             self._backoff[name] = BACKOFF_INITIAL
                             self._failures[name] = 0
                             continue

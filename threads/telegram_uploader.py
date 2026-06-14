@@ -23,7 +23,8 @@ class TelegramUploaderThread(threading.Thread):
         self.done_folder = config.DONE_FOLDER
         self.delete_after_done = config.DELETE_AFTER_DONE
         self.status = "waiting"
-        
+        self.last_heartbeat = time.monotonic()
+
         self.api_id, self.api_hash, self.channel = get_telegram_credentials()
         self.client: TelegramClient | None = None
         self.loop = asyncio.new_event_loop()
@@ -139,6 +140,7 @@ class TelegramUploaderThread(threading.Thread):
         try:
             while True:
                 try:
+                    self.last_heartbeat = time.monotonic()
                     # (Re-)connect client if not already connected
                     if self.client is None:
                         if not self.setup_client():
@@ -151,6 +153,7 @@ class TelegramUploaderThread(threading.Thread):
                     pdf_files = [f for f in self.ocr_folder.glob("*.pdf") if not f.name.endswith(".temp.pdf")]
 
                     for pdf_file in pdf_files:
+                        self.last_heartbeat = time.monotonic()
                         self.upload_file(pdf_file)
 
                 except Exception as e:

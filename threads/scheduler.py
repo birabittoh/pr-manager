@@ -74,6 +74,7 @@ class SchedulerThread(threading.Thread):
     def __init__(self):
         super().__init__(daemon=True, name="SchedulerThread")
         self.status = "waiting"
+        self.last_heartbeat = time.monotonic()
 
         threshold_date = config.THRESHOLD_DATE
         scheduler_time = config.SCHEDULER_TIME
@@ -91,5 +92,6 @@ class SchedulerThread(threading.Thread):
         logger.info("Scheduler thread running")
 
         while True:
+            self.last_heartbeat = time.monotonic()
             schedule.run_pending()
             time.sleep(SCHEDULER_DELAY)
