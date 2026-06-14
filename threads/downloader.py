@@ -21,13 +21,15 @@ class DownloaderThread(threading.Thread):
         self.download_folder = config.DOWNLOAD_FOLDER
         self.ocr_folder = config.OCR_FOLDER
         self.status = "waiting"
-    
+        self.last_heartbeat = time.monotonic()
+
     def run(self):
         logger.info("Downloader thread running")
 
         while True:
             try:
                 self.status = "running"
+                self.last_heartbeat = time.monotonic()
                 db.connect(reuse_if_open=True)
                 # Get FileWorkflows that are not yet downloaded
                 fws: list[FileWorkflow] = list(FileWorkflow.select().where((FileWorkflow.downloaded == False)))
@@ -42,6 +44,7 @@ class DownloaderThread(threading.Thread):
                 # Get keys for each FileWorkflow first
                 keys_map: dict[str, list[dict[str,str]]] = {}
                 for fw in fws:
+                    self.last_heartbeat = time.monotonic()
                     fw_filename = get_fw_filename(fw)
                     publication = pubs_map.get(str(fw.publication_name))
                     if publication is None:
@@ -63,6 +66,7 @@ class DownloaderThread(threading.Thread):
                 
                 # Download each issue
                 for fw in fws:
+                    self.last_heartbeat = time.monotonic()
                     fw_filename = get_fw_filename(fw)
                     if fw_filename not in keys_map:
                         logger.error(f"Skipping download for {fw.publication_name} on {get_fw_date(str(fw.key))}: could not retrieve page keys")

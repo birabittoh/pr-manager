@@ -45,7 +45,7 @@ def _download_image(issue_number: str, scale: int, page_number: int, key: str, i
         while retries < config.MAX_RETRIES:
             try:
                 logger.debug(f"GET {url}?{'&'.join(f'{k}={v}' for k,v in params.items())}")
-                response = requests.get(url, params=params, headers=headers)
+                response = requests.get(url, params=params, headers=headers, timeout=(config.REQUEST_TIMEOUT, config.REQUEST_TIMEOUT))
                 
                 if response.status_code == 500:
                     retries += 1

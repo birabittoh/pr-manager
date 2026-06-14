@@ -24,7 +24,7 @@ def _get_jwt_logic() -> str:
         "urlReferrer": "",
         "url": f"{PRESSREADER_URL}/{PRESSREADER_LANGUAGE}{PRESSREADER_CATALOG_ENDPOINT}",
     }
-    response = requests.post(url, json=data)
+    response = requests.post(url, json=data, timeout=(config.REQUEST_TIMEOUT, config.REQUEST_TIMEOUT))
     response.raise_for_status()
     json_data = response.json()
     bearer_token = json_data.get("bearerToken", "")
@@ -81,11 +81,12 @@ def unauthorized_request(url: str, params: dict[str,str]) -> requests.Response:
     headers = {
         "Authorization": f"Bearer {jwt}",
     }
-    response = requests.get(url, headers=headers, params=params)
+    timeout = (config.REQUEST_TIMEOUT, config.REQUEST_TIMEOUT)
+    response = requests.get(url, headers=headers, params=params, timeout=timeout)
     if response.status_code == 401:
         logger.info("JWT expired, obtaining a new one...")
         invalidate_jwt()
         jwt = get_jwt()
         headers["Authorization"] = f"Bearer {jwt}"
-        response = requests.get(url, headers=headers, params=params)
+        response = requests.get(url, headers=headers, params=params, timeout=timeout)
     return response

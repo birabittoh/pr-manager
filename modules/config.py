@@ -68,6 +68,10 @@ MAX_RETRIES: int = _get_int("MAX_RETRIES", 10) or 10
 CHROMIUM_TIMEOUT: int = _get_int("CHROMIUM_TIMEOUT", 5000) or 5000
 HEADLESS: bool = _get_bool("HEADLESS", True)
 
+# Network / watchdog
+REQUEST_TIMEOUT: int = _get_int("REQUEST_TIMEOUT", 30) or 30
+HEARTBEAT_TIMEOUT: int = _get_int("HEARTBEAT_TIMEOUT", 600) or 600
+
 __all__ = [
     "LOG_LEVEL",
     "LOG_FOLDER",
@@ -94,4 +98,6 @@ __all__ = [
     "MAX_RETRIES",
     "CHROMIUM_TIMEOUT",
     "HEADLESS",
+    "REQUEST_TIMEOUT",
+    "HEARTBEAT_TIMEOUT",
 ]
