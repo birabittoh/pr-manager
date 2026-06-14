@@ -9,6 +9,7 @@ from playwright.sync_api import Page, Response, TimeoutError, sync_playwright
 import requests
 
 from modules import config
+from modules.notify import notify_admin
 
 logger = logging.getLogger(__name__)
 
@@ -82,6 +83,11 @@ class Chromium(object):
     def __check_only_one_instance_alive():
         if len(Chromium._instance) != 1:
             logger.error("Weird behaviour, too many alive references...exiting...")
+            notify_admin(
+                "Browser session in an inconsistent state (too many Chromium instances). "
+                "The JWT/login flow cannot continue and needs manual intervention.",
+                dedupe_key="chromium-instances",
+            )
             sys.exit("Weird behaviour, too many alive references...exiting...")
 
 
@@ -103,6 +109,11 @@ def _perform_mlol_login(page: Page, username: str, password: str, chromium: Chro
         warning_failed_login = (page.text_content(".page-title") or "").lower()
         if "avviso" in warning_failed_login:
             chromium.clean()
+            notify_admin(
+                "MLOL login failed — please check your MLOL credentials. "
+                "Downloads cannot proceed until this is fixed.",
+                dedupe_key="mlol-login-failed",
+            )
             sys.exit("Login failed, please check your MLOL credentials!")
     except TimeoutError:
         pass
@@ -154,6 +165,11 @@ def _dismiss_mlol_modal(page: Page):
 def _get_jwt_logic() -> tuple[str, datetime.datetime]:
     """Return JWT token captured from PressReader GetPageKeys request."""
     if not config.MLOL_USERNAME or not config.MLOL_PASSWORD:
+        notify_admin(
+            "MLOL credentials are not set (MLOL_USERNAME / MLOL_PASSWORD). "
+            "The service cannot authenticate and needs manual intervention.",
+            dedupe_key="mlol-credentials-missing",
+        )
         sys.exit("MLOL credentials are not set in environment variables!")
 
     chromium = Chromium.get_chromium()
@@ -171,6 +187,11 @@ def _get_jwt_logic() -> tuple[str, datetime.datetime]:
         jwt_token = auth_info.get("bearerToken", None)
 
         if not jwt_token:
+            notify_admin(
+                "JWT token could not be captured from PressReader. The login flow may have "
+                "changed or MLOL is unavailable; downloads are blocked until this is resolved.",
+                dedupe_key="jwt-capture-failed",
+            )
             sys.exit("JWT token not found!")
 
         # Decode exp claim from JWT payload (middle segment, base64url)
