@@ -1,5 +1,6 @@
 import logging
 from pathlib import Path
+import threading
 import time
 
 import requests
@@ -7,6 +8,7 @@ import requests
 from modules import config
 from modules.jwt import authorized_request
 from modules.jwt_quick import unauthorized_request
+from modules.notify import notify_admin
 from modules.utils import get_fw_date
 
 logger = logging.getLogger(__name__)
@@ -82,6 +84,32 @@ def _download_image(issue_number: str, scale: int, page_number: int, key: str, i
     return None
 
 
+_page_keys_lock = threading.Lock()
+_page_keys_failures = 0
+
+
+def _record_page_keys_result(ok: bool, reason: str = "") -> None:
+    """Track consecutive get_page_keys failures and alert the admin when they persist.
+
+    These failures are swallowed (the downloader just retries), so without this
+    a permanently broken login/JWT flow would never surface.
+    """
+    global _page_keys_failures
+    with _page_keys_lock:
+        if ok:
+            _page_keys_failures = 0
+            return
+        _page_keys_failures += 1
+        count = _page_keys_failures
+    if count >= config.PAGE_KEYS_FAILURE_ALERT_THRESHOLD:
+        notify_admin(
+            f"Fetching issue page keys has failed {count} times in a row "
+            f"(last error: {reason[:300]}). The login/JWT flow may be broken or "
+            "PressReader is unavailable; downloads are blocked until this is resolved.",
+            dedupe_key="page-keys-failing",
+        )
+
+
 def get_page_keys(issue_key: str) -> tuple[list[dict[str,str]], int]:
     """Get page keys for an issue"""
     url = PRESSREADER_BASE_URL + GET_PAGE_KEYS_ENDPOINT
@@ -96,8 +124,12 @@ def get_page_keys(issue_key: str) -> tuple[list[dict[str,str]], int]:
             
         if not response.ok:
             logger.error(f"Error in request: {response.status_code}")
+            # 404 means the issue doesn't exist, not that the service is broken.
+            if response.status_code != 404:
+                _record_page_keys_result(False, f"HTTP {response.status_code}")
             return [], response.status_code
-            
+
+        _record_page_keys_result(True)
         response_data = response.json()
         page_keys = response_data.get("PageKeys", [])
         if not page_keys:
@@ -107,6 +139,7 @@ def get_page_keys(issue_key: str) -> tuple[list[dict[str,str]], int]:
         
     except Exception as e:
         logger.error(f"Exception getting page keys: {e}")
+        _record_page_keys_result(False, str(e).splitlines()[0] if str(e) else type(e).__name__)
         return [], 500
 
 def get_issue_info(issue_id: str) -> dict | None:

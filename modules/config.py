@@ -64,6 +64,8 @@ TELEGRAM_BOT_TOKEN: str | None = _get_opt("TELEGRAM_BOT_TOKEN")
 TELEGRAM_CHAT_ID: str | None = _get_opt("TELEGRAM_CHAT_ID")
 TELEGRAM_THREAD_ID: int | None = _get_int("TELEGRAM_THREAD_ID", None)
 NOTIFY_COOLDOWN: int = _get_int("NOTIFY_COOLDOWN", 1800) or 1800
+# Alert after this many consecutive page-key fetch failures (login/JWT/API broken).
+PAGE_KEYS_FAILURE_ALERT_THRESHOLD: int = _get_int("PAGE_KEYS_FAILURE_ALERT_THRESHOLD", 5) or 5
 
 THRESHOLD_DATE: str = _get_str("THRESHOLD_DATE", "19700101")
 DELETE_AFTER_DONE: bool = _get_bool("DELETE_AFTER_DONE") or False
