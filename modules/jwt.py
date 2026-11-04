@@ -99,10 +99,10 @@ def _config_page(page: Page):
 
 def _perform_mlol_login(page: Page, username: str, password: str, chromium: Chromium):
     logger.debug("Logging into MLOL...")
-    page.click("#mainmenu > div.nav-item.d-none.d-lg-flex.justify-content-end.align-items-center.col-4.gap-3 > button", timeout=config.CHROMIUM_TIMEOUT)
+    page.click("#mainmenu button:has-text('Accedi')", timeout=config.CHROMIUM_TIMEOUT)
     page.fill("input[name='Username']", username, timeout=config.CHROMIUM_TIMEOUT)
     page.fill("input[name='Password']", password, timeout=config.CHROMIUM_TIMEOUT)
-    page.click("#loginFormBlock > button", timeout=config.CHROMIUM_TIMEOUT)
+    page.click("#loginFormBlock button:has-text('Login')", timeout=config.CHROMIUM_TIMEOUT)
 
     # Failed login detection
     try:
