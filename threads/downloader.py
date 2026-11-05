@@ -31,8 +31,8 @@ class DownloaderThread(threading.Thread):
                 self.status = "running"
                 self.last_heartbeat = time.monotonic()
                 db.connect(reuse_if_open=True)
-                # Get FileWorkflows that are not yet downloaded
-                fws: list[FileWorkflow] = list(FileWorkflow.select().where((FileWorkflow.downloaded == False)))
+                # Get FileWorkflows that are not yet downloaded (and not paused)
+                fws: list[FileWorkflow] = list(FileWorkflow.select().where((FileWorkflow.downloaded == False) & (FileWorkflow.paused == False)))
                 db.close()
 
                 pubs_map: dict[str, Publication] = {}

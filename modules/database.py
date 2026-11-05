@@ -29,6 +29,8 @@ class FileWorkflow(BaseModel):
     downloaded = BooleanField(default=False)
     ocr_processed = BooleanField(default=False)
     uploaded = BooleanField(default=False)
+    # Paused workflows are kept in the DB (so the scheduler doesn't recreate them) but not downloaded.
+    paused = BooleanField(default=False)
     channel_id = IntegerField(null=True)
     message_id = IntegerField(null=True)
     created_at = DateTimeField(default=datetime.now)
@@ -42,6 +44,8 @@ class FileWorkflow(BaseModel):
 def init_db():
     db.connect()
     db.create_tables([Publication, FileWorkflow])
+    if 'paused' not in [c.name for c in db.get_columns('fileworkflow')]:
+        db.execute_sql('ALTER TABLE fileworkflow ADD COLUMN paused INTEGER NOT NULL DEFAULT 0')
     
     input_file = Path(__file__).parent.parent / "input.json"
     if input_file.exists():
