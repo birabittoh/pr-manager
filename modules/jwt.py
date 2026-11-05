@@ -120,6 +120,7 @@ def _perform_mlol_login(page: Page, username: str, password: str, chromium: Chro
 
 
 def _get_auth_info(page: Page, chromium: Chromium) -> dict:
+    _dismiss_mlol_modal(page)
     logger.debug("Clicking Esplora button...")
     page.click("#btnExplore", timeout=config.CHROMIUM_TIMEOUT)
 
@@ -152,14 +153,19 @@ def _get_auth_info(page: Page, chromium: Chromium) -> dict:
 
 
 def _dismiss_mlol_modal(page: Page):
-    try:
-        page.wait_for_selector("#FavModal")
-        modal_dismissal_button = page.locator(
-            "//div[@class='modal-footer']/button[@data-dismiss='modal']"
-        )
-        modal_dismissal_button.click()
-    except TimeoutError:
-        pass
+    """Close any open modal (favourites, site-wide "Avviso" notices, ...) that would block clicks."""
+    dismiss = page.locator(
+        ".modal.show .modal-footer button[data-bs-dismiss='modal'], "
+        ".modal.show .modal-footer button[data-dismiss='modal'], "
+        ".modal.show .btn-close"
+    )
+    for _ in range(5):
+        try:
+            page.wait_for_selector(".modal.show", timeout=3000)
+            dismiss.first.click(timeout=config.CHROMIUM_TIMEOUT)
+            page.wait_for_selector(".modal.show", state="detached", timeout=config.CHROMIUM_TIMEOUT)
+        except TimeoutError:
+            return
 
 
 def _get_jwt_logic() -> tuple[str, datetime.datetime]:
